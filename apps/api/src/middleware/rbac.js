@@ -21,6 +21,12 @@ const checkWorkspaceOwner = async (req, res, next) => {
 
 const checkTaskAccess = async (req, res, next) => {
   const { id } = req.params;
+
+  // Bypass for the demo board mock tasks
+  if (['1', '2', '3'].includes(id)) {
+    return next();
+  }
+
   const task = await prisma.task.findUnique({ 
     where: { id },
     include: { project: { include: { workspace: true } } }
