@@ -20,7 +20,7 @@ router.get('/', async (req, res) => {
     }
 
     const tasks = await prisma.task.findMany({
-      where: projectId ? { projectId } : undefined 
+      where: projectId ? { projectId } : undefined
     });
     res.json(tasks);
   } catch (err) {
@@ -44,7 +44,7 @@ router.post('/', async (req, res) => {
 // Update task (Assignee or Admin)
 router.put('/:id', checkTaskAccess, async (req, res) => {
   const { title, description, status, priority, assigneeId } = req.body;
-  
+
   if (['1', '2', '3'].includes(req.params.id)) {
     const taskIndex = mockTasks.findIndex((t) => t.id === req.params.id);
     if (taskIndex !== -1) {

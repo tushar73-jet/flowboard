@@ -11,7 +11,7 @@ const authenticate = (req, res, next) => {
 const checkWorkspaceOwner = async (req, res, next) => {
   const { id } = req.params;
   const workspace = await prisma.workspace.findUnique({ where: { id } });
-  
+
   if (!workspace) return res.status(404).json({ error: 'Workspace not found' });
   if (workspace.ownerId !== req.user.id) {
     return res.status(403).json({ error: 'Permission denied: Only Owners can perform this action' });
@@ -27,7 +27,7 @@ const checkTaskAccess = async (req, res, next) => {
     return next();
   }
 
-  const task = await prisma.task.findUnique({ 
+  const task = await prisma.task.findUnique({
     where: { id },
     include: { project: { include: { workspace: true } } }
   });
@@ -38,17 +38,17 @@ const checkTaskAccess = async (req, res, next) => {
   if (req.method === 'PUT' || req.method === 'PATCH') {
     // Is the user the assignee?
     if (task.assigneeId === req.user.id) return next();
-    
+
     // If not assignee, is the user an Admin of the workspace?
     const membership = await prisma.workspaceMember.findUnique({
       where: { workspaceId_userId: { workspaceId: task.project.workspaceId, userId: req.user.id } }
     });
-    
+
     if (!membership || membership.role !== 'ADMIN') {
       return res.status(403).json({ error: 'Permission denied: Members can only update assigned tasks' });
     }
   }
-  
+
   next();
 };
 
