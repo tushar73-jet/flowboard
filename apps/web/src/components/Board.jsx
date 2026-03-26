@@ -23,7 +23,7 @@ const DEFAULT_COLUMNS = [
   { id: "DONE", title: "Done" },
 ];
 
-export default function Board({ tasks, onTaskUpdate, onColumnReorder }) {
+export default function Board({ tasks, onTaskUpdate, onColumnReorder, onAddTask }) {
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   
   const sensors = useSensors(
@@ -89,7 +89,7 @@ export default function Board({ tasks, onTaskUpdate, onColumnReorder }) {
           {columns.map((col) => (
             <Column
               key={col.id}
-              column={col}
+              column={{ ...col, onAddTask }}
               tasks={tasks.filter((t) => t.status === col.id)}
             />
           ))}

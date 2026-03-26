@@ -80,6 +80,9 @@ export default function Column({ column, tasks }) {
         leftIcon={<Plus size={16} />}
         size="sm"
         w="full"
+        onClick={() => {
+          if (column.onAddTask) column.onAddTask(column.id);
+        }}
       >
         New Task
       </Button>

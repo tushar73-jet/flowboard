@@ -4,11 +4,12 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("Seeding database...");
   
-  // 1. Create a User
+  // 1. Create a User mapped to the frontend API header token
   const user = await prisma.user.upsert({
     where: { email: 'test@example.com' },
     update: {},
     create: {
+      id: 'dev-user-id',
       email: 'test@example.com',
       name: 'Test User',
     },

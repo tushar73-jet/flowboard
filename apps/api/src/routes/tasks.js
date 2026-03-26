@@ -35,6 +35,10 @@ router.post('/', async (req, res) => {
     const task = await prisma.task.create({
       data: { title, description, status, priority, projectId, assigneeId }
     });
+    
+    const io = req.app.get('io');
+    if (io) io.to(`project:${projectId}`).emit('task_created', task);
+    
     res.status(201).json(task);
   } catch (err) {
     res.status(500).json({ error: 'Failed to create task' });
@@ -49,6 +53,8 @@ router.put('/:id', checkTaskAccess, async (req, res) => {
     const taskIndex = mockTasks.findIndex((t) => t.id === req.params.id);
     if (taskIndex !== -1) {
       mockTasks[taskIndex] = { ...mockTasks[taskIndex], title, description, status, priority, assigneeId, updatedAt: new Date() };
+      const io = req.app.get('io');
+      if (io) io.to(`project:demo-project`).emit('task_updated', mockTasks[taskIndex]);
       return res.json(mockTasks[taskIndex]);
     }
   }
@@ -58,9 +64,29 @@ router.put('/:id', checkTaskAccess, async (req, res) => {
       where: { id: req.params.id },
       data: { title, description, status, priority, assigneeId }
     });
+    
+    const io = req.app.get('io');
+    if (io) io.to(`project:${task.projectId}`).emit('task_updated', task);
+    
     res.json(task);
   } catch (err) {
     res.status(500).json({ error: 'Failed to update task' });
+  }
+});
+
+// Delete task
+router.delete('/:id', checkTaskAccess, async (req, res) => {
+  try {
+    const task = await prisma.task.delete({
+      where: { id: req.params.id }
+    });
+    
+    const io = req.app.get('io');
+    if (io) io.to(`project:${task.projectId}`).emit('task_deleted', task.id);
+    
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete task' });
   }
 });
 

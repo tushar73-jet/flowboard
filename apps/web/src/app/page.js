@@ -1,18 +1,42 @@
 "use client";
 import Link from "next/link";
-import { Flex, Heading, Text, Button, VStack, Box, Spinner, HStack } from "@chakra-ui/react";
+import { Flex, Heading, Text, Button, VStack, Box, Spinner, HStack, Select } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { SignInButton, SignUpButton, UserButton, SignedIn, SignedOut } from "@clerk/nextjs";
 import api from "@/lib/api";
 
 export default function Home() {
+  const [workspaces, setWorkspaces] = useState([]);
+  const [selectedWorkspace, setSelectedWorkspace] = useState(null);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // 1. Fetch workspaces
   useEffect(() => {
-    async function loadProjects() {
+    async function loadWorkspaces() {
       try {
-        const { data } = await api.get('/projects');
+        const { data } = await api.get('/workspaces');
+        setWorkspaces(data);
+        if (data && data.length > 0) {
+          setSelectedWorkspace(data[0].id);
+        } else {
+          setLoading(false); // If no workspaces, stop loading
+        }
+      } catch (e) {
+        console.error("Failed to load workspaces", e);
+        setLoading(false);
+      }
+    }
+    loadWorkspaces();
+  }, []);
+
+  // 2. Fetch projects for selected workspace
+  useEffect(() => {
+    if (!selectedWorkspace) return;
+    async function loadProjects() {
+      setLoading(true);
+      try {
+        const { data } = await api.get(`/projects?workspaceId=${selectedWorkspace}`);
         setProjects(data);
       } catch (e) {
         console.error("Failed to load projects", e);
@@ -21,7 +45,7 @@ export default function Home() {
       }
     }
     loadProjects();
-  }, []);
+  }, [selectedWorkspace]);
 
   return (
     <Flex
@@ -70,11 +94,55 @@ export default function Home() {
 
       <SignedIn>
         <Box mt={8} w="full" maxW="md">
-          <Heading size="md" mb={6} color="whiteAlpha.800">Your Projects</Heading>
+          <Flex justify="space-between" align="center" mb={4}>
+            <Heading size="sm" color="whiteAlpha.800">Workspace</Heading>
+            <Button size="xs" variant="ghost" colorScheme="brand" onClick={async () => {
+              const name = window.prompt("Workspace Name:");
+              if (name) {
+                await api.post('/workspaces', { name });
+                const { data } = await api.get('/workspaces');
+                setWorkspaces(data);
+                if (data.length > 0) setSelectedWorkspace(data[data.length - 1].id);
+              }
+            }}>+ New Workspace</Button>
+          </Flex>
+
+          {workspaces.length > 0 ? (
+            <Select 
+              mb={6} 
+              variant="filled" 
+              bg="whiteAlpha.100" 
+              _hover={{ bg: "whiteAlpha.200" }}
+              value={selectedWorkspace || ""}
+              onChange={(e) => setSelectedWorkspace(e.target.value)}
+            >
+              {workspaces.map((ws) => (
+                <option key={ws.id} value={ws.id} style={{ background: '#1a202c' }}>
+                  {ws.name}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <Text mb={6} fontSize="sm" color="whiteAlpha.500">No workspaces yet.</Text>
+          )}
+
+          <Flex justify="space-between" align="center" mb={6}>
+            <Heading size="md" color="whiteAlpha.800">Your Projects</Heading>
+            {selectedWorkspace && (
+              <Button size="sm" colorScheme="brand" variant="outline" onClick={async () => {
+                const name = window.prompt("Project Name:");
+                if (name) {
+                  await api.post('/projects', { name, workspaceId: selectedWorkspace });
+                  const { data } = await api.get(`/projects?workspaceId=${selectedWorkspace}`);
+                  setProjects(data);
+                }
+              }}>+ New Project</Button>
+            )}
+          </Flex>
           {loading ? (
             <Spinner color="brand.500" />
           ) : projects.length === 0 ? (
-            <Text color="whiteAlpha.500">No projects found. Please run the seed script!</Text>
+            <Text color="whiteAlpha.500">No projects found in this workspace. Run the seed script!</Text>
           ) : (
             <VStack spacing={4} align="stretch">
               {projects.map((proj) => (

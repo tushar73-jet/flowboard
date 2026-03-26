@@ -1,9 +1,21 @@
 const prisma = require('../lib/prisma');
 
 // Middleware to extract user from header (simple mock auth for now)
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   const userId = req.headers['x-user-id'];
   if (!userId) return res.status(401).json({ error: 'Unauthorized: No user ID provided' });
+  
+  try {
+    // Lazily sync the user to the database exactly like a Clerk Webhook would!
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: { id: userId, email: `${userId}@flowboard-mock.com`, name: 'Flowboard User' }
+    });
+  } catch (err) {
+    console.error("Auth User Sync Error:", err);
+  }
+
   req.user = { id: userId };
   next();
 };
