@@ -76,5 +76,36 @@ export function useTasks(projectId) {
     },
   });
 
-  return { ...query, updateTaskMutation };
+  const addTaskMutation = useMutation({
+    mutationFn: async (newTask) => {
+      const { data } = await api.post(`/tasks`, { ...newTask, projectId });
+      return data;
+    },
+    onMutate: async (newTask) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks", projectId] });
+      const previousTasks = queryClient.getQueryData(["tasks", projectId]);
+      
+      const optimisticTask = {
+        ...newTask,
+        id: `optimistic-${Date.now()}`,
+        projectId,
+        updatedAt: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData(["tasks", projectId], (old) => {
+        if (!old) return [optimisticTask];
+        return [...old, optimisticTask];
+      });
+
+      return { previousTasks };
+    },
+    onError: (err, newTodo, context) => {
+      queryClient.setQueryData(["tasks", projectId], context.previousTasks);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+    },
+  });
+
+  return { ...query, updateTaskMutation, addTaskMutation };
 }

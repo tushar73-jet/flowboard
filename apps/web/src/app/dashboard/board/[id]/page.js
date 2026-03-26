@@ -3,12 +3,15 @@ import React from "react";
 import { useTasks } from "@/hooks/useTasks";
 import Board from "@/components/Board";
 import { useParams } from "next/navigation";
-import { Box, Flex, Spinner, Text, Heading } from "@chakra-ui/react";
+import { Box, Flex, Spinner, Text, Heading, Button } from "@chakra-ui/react";
+
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export default function BoardPage() {
     const params = useParams();
     const projectId = params.id;
-    const { data: tasks, isLoading, isError, updateTaskMutation } = useTasks(projectId);
+    const { data: tasks, isLoading, isError, updateTaskMutation, addTaskMutation } = useTasks(projectId);
 
     if (isLoading) {
         return (
@@ -28,11 +31,23 @@ export default function BoardPage() {
         );
     }
 
+    const handleAddTask = (status) => {
+        const title = window.prompt("Task Title:");
+        if (!title) return;
+        addTaskMutation.mutate({ 
+            title, 
+            description: "", 
+            status, 
+            priority: "MEDIUM" 
+        });
+    };
+
     return (
-        <Box minH="100vh" bg="canvas">
+        <Box minH="100vh" bg="#0f172a">
             <Flex
                 as="header"
-                p={6}
+                p={4}
+                px={8}
                 borderBottomWidth="1px"
                 borderColor="whiteAlpha.100"
                 bg="rgba(15, 23, 42, 0.9)"
@@ -40,16 +55,32 @@ export default function BoardPage() {
                 position="sticky"
                 top={0}
                 zIndex={10}
-                direction="column"
-                gap={1}
+                justify="space-between"
+                align="center"
             >
-                <Heading size="md" color="whiteAlpha.900">Project Board</Heading>
-                <Text color="whiteAlpha.500" fontSize="sm">Project ID: {projectId}</Text>
+                <Flex align="center" gap={4}>
+                    <Button 
+                        as={Link} 
+                        href="/" 
+                        variant="ghost" 
+                        size="sm" 
+                        color="whiteAlpha.600"
+                        _hover={{ color: "white", bg: "whiteAlpha.100" }}
+                        leftIcon={<ArrowLeft size={16} />}
+                    >
+                        Back
+                    </Button>
+                    <Box>
+                        <Heading size="md" color="whiteAlpha.900">Project Board</Heading>
+                        <Text color="whiteAlpha.500" fontSize="xs">ID: {projectId}</Text>
+                    </Box>
+                </Flex>
             </Flex>
 
             <Board
                 tasks={tasks || []}
                 onTaskUpdate={(updatedTask) => updateTaskMutation.mutate(updatedTask)}
+                onAddTask={handleAddTask}
                 onColumnReorder={(newColumns) => {
                     console.log("Saving new column order:", newColumns);
                 }}
