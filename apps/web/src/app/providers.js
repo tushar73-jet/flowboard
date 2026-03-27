@@ -32,12 +32,40 @@ const theme = extendTheme({
   }
 });
 
+import { useAuth } from "@clerk/nextjs";
+import { useEffect } from "react";
+import api from "@/lib/api";
+
+function AxiosClerkSync() {
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    // Add interceptor once
+    const interceptor = api.interceptors.request.use(async (config) => {
+      try {
+        const token = await getToken();
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      } catch (e) {
+        console.error("Failed to get Clerk token", e);
+      }
+      return config;
+    });
+
+    return () => api.interceptors.request.eject(interceptor);
+  }, [getToken]);
+
+  return null;
+}
+
 export default function Providers({ children }) {
   const [queryClient] = useState(() => new QueryClient());
 
   return (
     <QueryClientProvider client={queryClient}>
       <ChakraProvider theme={theme}>
+        <AxiosClerkSync />
         {children}
       </ChakraProvider>
     </QueryClientProvider>

@@ -1,23 +1,40 @@
 const prisma = require('../lib/prisma');
+const { ClerkExpressRequireAuth } = require('@clerk/clerk-sdk-node');
 
-// Middleware to extract user from header (simple mock auth for now)
-const authenticate = async (req, res, next) => {
-  const userId = req.headers['x-user-id'];
-  if (!userId) return res.status(401).json({ error: 'Unauthorized: No user ID provided' });
-  
-  try {
-    // Lazily sync the user to the database exactly like a Clerk Webhook would!
-    await prisma.user.upsert({
-      where: { id: userId },
-      update: {},
-      create: { id: userId, email: `${userId}@flowboard-mock.com`, name: 'Flowboard User' }
-    });
-  } catch (err) {
-    console.error("Auth User Sync Error:", err);
-  }
+// Proper Clerk Auth Middleware Wrapper
+const authenticate = (req, res, next) => {
+  // Use the official Clerk middleware to verify the JWT
+  ClerkExpressRequireAuth()(req, res, async (err) => {
+    if (err) {
+      console.error("Clerk Authentication Error:", err);
+      return res.status(401).json({ error: 'Unauthorized: Invalid or expired Clerk token' });
+    }
 
-  req.user = { id: userId };
-  next();
+    const userId = req.auth.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized: Missing Clerk user ID' });
+    }
+
+    try {
+      // Sync Clerk User ID to our local Postgres database
+      await prisma.user.upsert({
+        where: { id: userId },
+        update: {},
+        create: { 
+          id: userId, 
+          email: `clerk-${userId}@flowboard-user.com`, 
+          name: 'Verified Clerk User' 
+        }
+      });
+      
+      // Inject user context for subsequent handlers
+      req.user = { id: userId };
+      next();
+    } catch (syncErr) {
+      console.error("Database User Sync Failure:", syncErr);
+      res.status(500).json({ error: 'Internal server error during authentication sync' });
+    }
+  });
 };
 
 const checkWorkspaceOwner = async (req, res, next) => {
