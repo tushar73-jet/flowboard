@@ -17,6 +17,12 @@ model User {
   workspaces       Workspace[]       @relation("WorkspaceOwner")
   workspaceMembers WorkspaceMember[]
   assignedTasks    Task[]            @relation("TaskAssignee")
+  comments         Comment[]
+
+  stripeCustomerId       String?   @unique
+  stripeSubscriptionId   String?   @unique
+  stripePriceId          String?
+  stripeCurrentPeriodEnd DateTime?
 }
 
 model Workspace {
@@ -30,6 +36,7 @@ model Workspace {
   owner    User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
   members  WorkspaceMember[]
   projects Project[]
+  labels   Label[]
 }
 
 model WorkspaceMember {
@@ -70,4 +77,45 @@ model Task {
 
   project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   assignee User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  subtasks Subtask[]
+  comments Comment[]
+  labels   Label[]
 }
+
+model Subtask {
+  id          String   @id @default(uuid())
+  title       String
+  isCompleted Boolean  @default(false)
+  taskId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Label {
+  id          String   @id @default(uuid())
+  name        String
+  color       String   @default("#000000")
+  workspaceId String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+
+  @@unique([name, workspaceId])
+}
+
