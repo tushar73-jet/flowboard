@@ -13,7 +13,7 @@ export function useTasks(projectId) {
     if (!projectId) return;
 
     let socket;
-    
+
     async function setupSocket() {
       const token = await getToken();
       socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000", {
@@ -73,8 +73,8 @@ export function useTasks(projectId) {
     onMutate: async (updatedTask) => {
       await queryClient.cancelQueries({ queryKey: ["tasks", projectId] });
       const previousTasks = queryClient.getQueryData(["tasks", projectId]);
-      
-      queryClient.setQueryData(["tasks", projectId], (old) => 
+
+      queryClient.setQueryData(["tasks", projectId], (old) =>
         old.map((t) => (t.id === updatedTask.id ? { ...t, ...updatedTask } : t))
       );
 
@@ -96,7 +96,7 @@ export function useTasks(projectId) {
     onMutate: async (newTask) => {
       await queryClient.cancelQueries({ queryKey: ["tasks", projectId] });
       const previousTasks = queryClient.getQueryData(["tasks", projectId]);
-      
+
       const optimisticTask = {
         ...newTask,
         id: `optimistic-${Date.now()}`,

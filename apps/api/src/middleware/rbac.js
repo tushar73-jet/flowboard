@@ -3,7 +3,6 @@ const { ClerkExpressRequireAuth } = require('@clerk/clerk-sdk-node');
 
 // Proper Clerk Auth Middleware Wrapper
 const authenticate = (req, res, next) => {
-  // Use the official Clerk middleware to verify the JWT
   ClerkExpressRequireAuth()(req, res, async (err) => {
     if (err) {
       console.error("Clerk Authentication Error:", err);
@@ -17,68 +16,128 @@ const authenticate = (req, res, next) => {
 
     try {
       // Sync Clerk User ID to our local Postgres database
-      await prisma.user.upsert({
-        where: { id: userId },
-        update: {},
-        create: { 
-          id: userId, 
-          email: `clerk-${userId}@flowboard-user.com`, 
-          name: 'Verified Clerk User' 
+      // Using findUnique then check to avoid upsert race conditions in some Prisma versions
+      let user = await prisma.user.findUnique({ where: { id: userId } });
+      
+      if (!user) {
+        try {
+          user = await prisma.user.create({
+            data: {
+              id: userId,
+              email: `clerk-${userId}@flowboard-user.com`,
+              name: 'Verified Clerk User'
+            }
+          });
+        } catch (createErr) {
+          // If another request created it in the meantime, just fetch it
+          if (createErr.code === 'P2002') {
+            user = await prisma.user.findUnique({ where: { id: userId } });
+          } else {
+            throw createErr;
+          }
+        }
+      }
+
+      if (!user) {
+        console.warn(`[AUTH] User synchronization failed for userId: ${userId}`);
+        return res.status(401).json({ error: 'User synchronization failed' });
+      }
+
+      req.user = user;
+      console.log(`[AUTH] User authenticated: ${user.id} (${user.email})`);
+      next();
+    } catch (err) {
+      console.error("[AUTH] Middleware Error:", err);
+      res.status(500).json({ error: 'Authentication failed', details: err.message });
+    }
+  });
+};
+
+/**
+ * RBAC Middleware to check roles within a workspace
+ * @param {string[]} allowedRoles - List of roles that are allowed (OWNER, ADMIN, MEMBER)
+ */
+const requireRole = (allowedRoles = ['OWNER', 'ADMIN', 'MEMBER']) => {
+  return async (req, res, next) => {
+    const workspaceId = (req.params && req.params.workspaceId) || (req.body && req.body.workspaceId) || (req.query && req.query.workspaceId);
+    
+    if (!workspaceId) {
+      // If we can't find workspaceId in params/body/query, we might be on a sub-resource
+      // but for simplicity, we expect it to be provided or resolved beforehand.
+      return res.status(400).json({ error: 'Workspace ID is required for role verification' });
+    }
+
+    try {
+      console.log(`[RBAC] Checking role for user ${req.user.id} in workspace ${workspaceId}`);
+      
+      // First check if user is the Owner of the workspace
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: workspaceId }
+      });
+
+      if (!workspace) {
+        console.warn(`[RBAC] Workspace ${workspaceId} not found`);
+        return res.status(404).json({ error: 'Workspace not found' });
+      }
+
+      if (workspace.ownerId === req.user.id) {
+        console.log(`[RBAC] User ${req.user.id} is OWNER of workspace ${workspaceId}`);
+        return next();
+      }
+
+      // If not owner, check WorkspaceMember table
+      const membership = await prisma.workspaceMember.findUnique({
+        where: {
+          workspaceId_userId: {
+            workspaceId,
+            userId: req.user.id
+          }
         }
       });
-      
-      // Inject user context for subsequent handlers
-      req.user = { id: userId };
+
+      if (!membership) {
+        console.warn(`[RBAC] User ${req.user.id} is NOT a member of workspace ${workspaceId}`);
+        return res.status(403).json({ error: 'Forbidden: You are not a member of this workspace' });
+      }
+
+      if (!allowedRoles.includes(membership.role)) {
+        console.warn(`[RBAC] User ${req.user.id} has role ${membership.role}, but allowed roles are: ${allowedRoles}`);
+        return res.status(403).json({ error: `Forbidden: This action requires one of these roles: ${allowedRoles.join(', ')}` });
+      }
+
+      console.log(`[RBAC] User ${req.user.id} granted access with role ${membership.role}`);
+      req.membership = membership; // Inject membership info
       next();
-    } catch (syncErr) {
-      console.error("Database User Sync Failure:", syncErr);
-      res.status(500).json({ error: 'Internal server error during authentication sync' });
+    } catch (err) {
+      console.error("[RBAC] Error during role verification:", err);
+      res.status(500).json({ error: 'Internal server error during role verification', details: err.message });
     }
-  });
+  };
 };
 
-const checkWorkspaceOwner = async (req, res, next) => {
-  const { id } = req.params;
-  const workspace = await prisma.workspace.findUnique({ where: { id } });
+/**
+ * Helper: check if a user has the required role in a workspace.
+ * Returns { allowed: true, role: 'OWNER'|'ADMIN'|'MEMBER' } or { allowed: false, status, error }
+ * Call this INSIDE route handlers (after workspaceId is known).
+ */
+async function checkWorkspaceRole(userId, workspaceId, allowedRoles = ['OWNER', 'ADMIN', 'MEMBER']) {
+  const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+  if (!workspace) return { allowed: false, status: 404, error: 'Workspace not found' };
 
-  if (!workspace) return res.status(404).json({ error: 'Workspace not found' });
-  if (workspace.ownerId !== req.user.id) {
-    return res.status(403).json({ error: 'Permission denied: Only Owners can perform this action' });
-  }
-  next();
-};
-
-const checkTaskAccess = async (req, res, next) => {
-  const { id } = req.params;
-
-  // Bypass for the demo board mock tasks
-  if (['1', '2', '3'].includes(id)) {
-    return next();
+  if (workspace.ownerId === userId) {
+    return { allowed: true, role: 'OWNER' };
   }
 
-  const task = await prisma.task.findUnique({
-    where: { id },
-    include: { project: { include: { workspace: true } } }
+  const membership = await prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId } }
   });
 
-  if (!task) return res.status(404).json({ error: 'Task not found' });
-
-  // Only check restriction if it's an update (PUT/PATCH)
-  if (req.method === 'PUT' || req.method === 'PATCH') {
-    // Is the user the assignee?
-    if (task.assigneeId === req.user.id) return next();
-
-    // If not assignee, is the user an Admin of the workspace?
-    const membership = await prisma.workspaceMember.findUnique({
-      where: { workspaceId_userId: { workspaceId: task.project.workspaceId, userId: req.user.id } }
-    });
-
-    if (!membership || membership.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Permission denied: Members can only update assigned tasks' });
-    }
+  if (!membership) return { allowed: false, status: 403, error: 'Forbidden: not a workspace member' };
+  if (!allowedRoles.includes(membership.role)) {
+    return { allowed: false, status: 403, error: `Forbidden: requires ${allowedRoles.join(' or ')}` };
   }
 
-  next();
-};
+  return { allowed: true, role: membership.role };
+}
 
-module.exports = { authenticate, checkWorkspaceOwner, checkTaskAccess };
+module.exports = { authenticate, requireRole, checkWorkspaceRole };

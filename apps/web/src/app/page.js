@@ -108,10 +108,10 @@ export default function Home() {
           </Flex>
 
           {workspaces.length > 0 ? (
-            <Select 
-              mb={6} 
-              variant="filled" 
-              bg="whiteAlpha.100" 
+            <Select
+              mb={6}
+              variant="filled"
+              bg="whiteAlpha.100"
               _hover={{ bg: "whiteAlpha.200" }}
               value={selectedWorkspace || ""}
               onChange={(e) => setSelectedWorkspace(e.target.value)}
@@ -132,9 +132,14 @@ export default function Home() {
               <Button size="sm" colorScheme="brand" variant="outline" onClick={async () => {
                 const name = window.prompt("Project Name:");
                 if (name) {
-                  await api.post('/projects', { name, workspaceId: selectedWorkspace });
-                  const { data } = await api.get(`/projects?workspaceId=${selectedWorkspace}`);
-                  setProjects(data);
+                  try {
+                    await api.post('/projects', { name, workspaceId: selectedWorkspace });
+                    const { data } = await api.get(`/projects?workspaceId=${selectedWorkspace}`);
+                    setProjects(data);
+                  } catch (e) {
+                    const msg = e.response?.data?.details || e.response?.data?.error || e.message;
+                    window.alert("Error: " + msg);
+                  }
                 }
               }}>+ New Project</Button>
             )}
@@ -146,12 +151,12 @@ export default function Home() {
           ) : (
             <VStack spacing={4} align="stretch">
               {projects.map((proj) => (
-                <Button 
+                <Button
                   key={proj.id}
-                  as={Link} 
+                  as={Link}
                   href={`/dashboard/board/${proj.id}`}
-                  size="lg" 
-                  colorScheme="brand" 
+                  size="lg"
+                  colorScheme="brand"
                   variant="outline"
                   rounded="xl"
                   justifyContent="space-between"
