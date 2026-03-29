@@ -95,4 +95,20 @@ router.get('/:workspaceId/members', requireRole(['OWNER', 'ADMIN', 'MEMBER']), a
   }
 });
 
+// Get current user's role in a workspace
+router.get('/:workspaceId/my-role', async (req, res) => {
+  const { workspaceId } = req.params;
+  try {
+    const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+    if (!workspace) return res.status(404).json({ error: 'Workspace not found' });
+    if (workspace.ownerId === req.user.id) return res.json({ role: 'OWNER' });
+    const membership = await prisma.workspaceMember.findUnique({
+      where: { workspaceId_userId: { workspaceId, userId: req.user.id } }
+    });
+    return res.json({ role: membership?.role || null });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get role' });
+  }
+});
+
 module.exports = router;
