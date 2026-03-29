@@ -104,7 +104,7 @@ app.get('/health', async (_req, res) => {
   try {
     const pong = await pubClient.ping();
     redisStatus = pong === 'PONG' ? 'connected' : 'error';
-  } catch (_) {}
+  } catch (_) { }
   res.json({
     status: 'ok',
     redis: redisStatus,

@@ -7,7 +7,7 @@ import {
   IconButton, Tooltip, Badge, Divider, Button,
 } from "@chakra-ui/react";
 import { UserButton } from "@clerk/nextjs";
-import { LayoutDashboard, FolderKanban, Plus, Trash2, ChevronRight, Settings } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Plus, Trash2, ChevronRight, Settings, Users } from "lucide-react";
 import { useDashboard } from "@/app/dashboard/layout";
 import api from "@/lib/api";
 
@@ -175,6 +175,12 @@ export default function Sidebar() {
           label="Dashboard"
           href="/dashboard"
           active={pathname === "/dashboard"}
+        />
+        <NavItem
+          icon={<Users size={15} />}
+          label="Team"
+          href="/dashboard/team"
+          active={pathname === "/dashboard/team"}
         />
       </Box>
 

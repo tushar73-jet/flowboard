@@ -52,22 +52,58 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Add Member to Workspace (Only Owner or Admin)
+// Add/Invite Member to Workspace by Email (Only Owner or Admin)
 router.post('/:workspaceId/members', requireRole(['OWNER', 'ADMIN']), async (req, res) => {
   const { workspaceId } = req.params;
-  const { userId, role = 'MEMBER' } = req.body;
+  const { email, role = 'MEMBER' } = req.body;
+
+  if (!email) return res.status(400).json({ error: 'Email is required' });
 
   try {
+    // 1. Find user by email in our local Prisma DB
+    const user = await prisma.user.findUnique({ where: { email } });
+    
+    if (!user) {
+      return res.status(404).json({ 
+        error: 'User not found in Flowboard. They must sign in at least once before being added to a workspace.' 
+      });
+    }
+
+    // 2. Upsert membership
     const member = await prisma.workspaceMember.upsert({
       where: {
-        workspaceId_userId: { workspaceId, userId }
+        workspaceId_userId: { workspaceId, userId: user.id }
       },
       update: { role },
-      create: { workspaceId, userId, role }
+      create: { workspaceId, userId: user.id, role }
     });
-    res.json(member);
+
+    res.json({ ...member, user: { name: user.name, email: user.email } });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to add member' });
+    console.error("Add Member Error:", err);
+    res.status(500).json({ error: 'Failed to add member', details: err.message });
+  }
+});
+
+// Remove Member (Only Owner or Admin, and can't remove yourself if Owner)
+router.delete('/:workspaceId/members/:userId', requireRole(['OWNER', 'ADMIN']), async (req, res) => {
+  const { workspaceId, userId } = req.params;
+
+  try {
+    // Check if trying to remove the owner
+    const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+    if (workspace.ownerId === userId) {
+      return res.status(403).json({ error: 'Cannot remove the workspace owner.' });
+    }
+
+    await prisma.workspaceMember.delete({
+      where: {
+        workspaceId_userId: { workspaceId, userId }
+      }
+    });
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to remove member' });
   }
 });
 
