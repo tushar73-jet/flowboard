@@ -4,6 +4,20 @@ const { checkWorkspaceRole } = require('../middleware/rbac');
 
 const router = express.Router();
 
+// ─── Helper: publish a task event via Redis pub/sub (falls back to Socket.IO)──
+function emitTaskEvent(req, type, projectId, payload) {
+  const redisPub = req.app.get('redisPub');
+  const io = req.app.get('io');
+
+  if (redisPub && redisPub.status === 'ready') {
+    // Publish to Redis channel — Redis adapter fans out to ALL instances
+    redisPub.publish('task_events', JSON.stringify({ type, projectId, payload }));
+  } else if (io) {
+    // Fallback: direct Socket.IO emit (single instance only)
+    io.to(`project:${projectId}`).emit(type, payload);
+  }
+}
+
 // In-memory mock tasks for demo
 let mockTasks = [
   { id: "1", title: "Setup Database", description: "Spin up Postgres with Docker.", status: "DONE", priority: "HIGH", projectId: "demo-project", updatedAt: new Date() },
@@ -11,19 +25,15 @@ let mockTasks = [
   { id: "3", title: "Auth flow", description: "Implement Clerk.", status: "TODO", priority: "HIGH", projectId: "demo-project", updatedAt: new Date() }
 ];
 
-// Helper: resolve workspaceId from a projectId
 async function resolveWorkspace(projectId) {
   const project = await prisma.project.findUnique({ where: { id: projectId } });
-  if (!project) return null;
-  return project.workspaceId;
+  return project?.workspaceId || null;
 }
 
 // GET /tasks?projectId=xxx  — any workspace member
 router.get('/', async (req, res) => {
   const { projectId } = req.query;
   if (!projectId) return res.status(400).json({ error: 'projectId is required' });
-
-  // Demo bypass
   if (projectId === 'demo-project') return res.json(mockTasks);
 
   try {
@@ -56,8 +66,10 @@ router.post('/', async (req, res) => {
     const task = await prisma.task.create({
       data: { title, description, status, priority, projectId, assigneeId }
     });
-    const io = req.app.get('io');
-    if (io) io.to(`project:${projectId}`).emit('task_created', task);
+
+    // 🔴→📡 Publish via Redis pub/sub
+    emitTaskEvent(req, 'task_created', projectId, task);
+
     res.status(201).json(task);
   } catch (err) {
     console.error('Create task error:', err);
@@ -65,7 +77,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /tasks/:id  — any workspace member can update status (drag-and-drop)
+// PUT /tasks/:id  — any workspace member (drag-drop)
 router.put('/:id', async (req, res) => {
   const { title, description, status, priority, assigneeId } = req.body;
 
@@ -74,28 +86,29 @@ router.put('/:id', async (req, res) => {
     const idx = mockTasks.findIndex(t => t.id === req.params.id);
     if (idx !== -1) {
       mockTasks[idx] = { ...mockTasks[idx], title, description, status, priority, updatedAt: new Date() };
-      const io = req.app.get('io');
-      if (io) io.to('project:demo-project').emit('task_updated', mockTasks[idx]);
+      emitTaskEvent(req, 'task_updated', 'demo-project', mockTasks[idx]);
       return res.json(mockTasks[idx]);
     }
   }
 
   try {
-    const existingTask = await prisma.task.findUnique({
+    const existing = await prisma.task.findUnique({
       where: { id: req.params.id },
       include: { project: true }
     });
-    if (!existingTask) return res.status(404).json({ error: 'Task not found' });
+    if (!existing) return res.status(404).json({ error: 'Task not found' });
 
-    const access = await checkWorkspaceRole(req.user.id, existingTask.project.workspaceId, ['OWNER', 'ADMIN', 'MEMBER']);
+    const access = await checkWorkspaceRole(req.user.id, existing.project.workspaceId, ['OWNER', 'ADMIN', 'MEMBER']);
     if (!access.allowed) return res.status(access.status).json({ error: access.error });
 
     const task = await prisma.task.update({
       where: { id: req.params.id },
       data: { title, description, status, priority, assigneeId }
     });
-    const io = req.app.get('io');
-    if (io) io.to(`project:${task.projectId}`).emit('task_updated', task);
+
+    // 🔴→📡 Publish via Redis pub/sub
+    emitTaskEvent(req, 'task_updated', task.projectId, task);
+
     res.json(task);
   } catch (err) {
     console.error('Update task error:', err);
@@ -106,18 +119,20 @@ router.put('/:id', async (req, res) => {
 // DELETE /tasks/:id  — Owner or Admin only
 router.delete('/:id', async (req, res) => {
   try {
-    const existingTask = await prisma.task.findUnique({
+    const existing = await prisma.task.findUnique({
       where: { id: req.params.id },
       include: { project: true }
     });
-    if (!existingTask) return res.status(404).json({ error: 'Task not found' });
+    if (!existing) return res.status(404).json({ error: 'Task not found' });
 
-    const access = await checkWorkspaceRole(req.user.id, existingTask.project.workspaceId, ['OWNER', 'ADMIN']);
+    const access = await checkWorkspaceRole(req.user.id, existing.project.workspaceId, ['OWNER', 'ADMIN']);
     if (!access.allowed) return res.status(access.status).json({ error: access.error });
 
     const task = await prisma.task.delete({ where: { id: req.params.id } });
-    const io = req.app.get('io');
-    if (io) io.to(`project:${task.projectId}`).emit('task_deleted', task.id);
+
+    // 🔴→📡 Publish via Redis pub/sub
+    emitTaskEvent(req, 'task_deleted', task.projectId, task.id);
+
     res.status(204).send();
   } catch (err) {
     console.error('Delete task error:', err);
