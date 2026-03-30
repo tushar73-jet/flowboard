@@ -11,6 +11,8 @@ const workspaceRoutes = require('./routes/workspaces');
 const projectRoutes = require('./routes/projects');
 const taskRoutes = require('./routes/tasks');
 const subtaskRoutes = require('./routes/subtasks');
+const commentRoutes = require('./routes/comments');
+const labelRoutes = require('./routes/labels');
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -128,6 +130,8 @@ app.use('/workspaces', workspaceRoutes);
 app.use('/projects', projectRoutes);
 app.use('/tasks', taskRoutes);
 app.use('/subtasks', subtaskRoutes);
+app.use('/comments', commentRoutes);
+app.use('/labels', labelRoutes);
 
 
 

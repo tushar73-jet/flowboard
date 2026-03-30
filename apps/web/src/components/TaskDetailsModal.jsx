@@ -23,6 +23,8 @@ export default function TaskDetailsModal({
   const [assigneeId, setAssigneeId] = useState(task?.assigneeId || "");
   const [subtasks, setSubtasks] = useState(task?.subtasks || []);
   const [newSubtask, setNewSubtask] = useState("");
+  const [comments, setComments] = useState([]);
+  const [newComment, setNewComment] = useState("");
 
   const toast = useToast();
 
@@ -34,6 +36,8 @@ export default function TaskDetailsModal({
       setPriority(task.priority);
       setAssigneeId(task.assigneeId || "");
       setSubtasks(task.subtasks || []);
+      // Fetch comments when task opens
+      api.get(`/comments?taskId=${task.id}`).then(({ data }) => setComments(data)).catch(() => {});
     }
   }, [task]);
 
@@ -69,6 +73,18 @@ export default function TaskDetailsModal({
   const handleDeleteSubtask = async (id) => {
     await api.delete(`/subtasks/${id}`);
     setSubtasks((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  const handleAddComment = async (e) => {
+    if (e.key !== "Enter" || !newComment.trim()) return;
+    const { data } = await api.post("/comments", { taskId: task.id, content: newComment.trim() });
+    setComments((prev) => [...prev, data]);
+    setNewComment("");
+  };
+
+  const handleDeleteComment = async (id) => {
+    await api.delete(`/comments/${id}`);
+    setComments((prev) => prev.filter((c) => c.id !== id));
   };
 
   const selectedAssignee = members.find(m => m.userId === assigneeId)?.user;
@@ -173,6 +189,43 @@ export default function TaskDetailsModal({
                     value={newSubtask}
                     onChange={(e) => setNewSubtask(e.target.value)}
                     onKeyDown={handleAddSubtask}
+                  />
+                </HStack>
+              </Box>
+
+              {/* Comments */}
+              <Box>
+                <HStack mb={2} spacing={2} color="whiteAlpha.500">
+                  <MessageSquare size={14} />
+                  <Text fontSize="xs" fontWeight="700" textTransform="uppercase">Comments</Text>
+                </HStack>
+
+                <VStack align="stretch" spacing={2} mb={2} maxH="160px" overflowY="auto">
+                  {comments.map((c) => (
+                    <HStack key={c.id} align="flex-start" spacing={2} px={2} py={1} rounded="lg" _hover={{ bg: "whiteAlpha.50" }}>
+                      <Avatar size="xs" name={c.user?.name} mt="2px" />
+                      <Box flex="1">
+                        <HStack spacing={2} mb={0.5}>
+                          <Text fontSize="xs" fontWeight="600" color="whiteAlpha.800">{c.user?.name}</Text>
+                          <Text fontSize="10px" color="whiteAlpha.400">{new Date(c.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
+                        </HStack>
+                        <Text fontSize="sm" color="whiteAlpha.700">{c.content}</Text>
+                      </Box>
+                      <IconButton icon={<Trash2 size={12} />} size="xs" variant="ghost" colorScheme="red" aria-label="delete" onClick={() => handleDeleteComment(c.id)} />
+                    </HStack>
+                  ))}
+                  {comments.length === 0 && <Text fontSize="xs" color="whiteAlpha.400" px={2}>No comments yet</Text>}
+                </VStack>
+
+                <HStack bg="whiteAlpha.50" px={3} py={1} rounded="lg">
+                  <MessageSquare size={13} color="#64748b" />
+                  <Input
+                    variant="unstyled"
+                    fontSize="sm"
+                    placeholder="Add comment, press Enter"
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    onKeyDown={handleAddComment}
                   />
                 </HStack>
               </Box>
