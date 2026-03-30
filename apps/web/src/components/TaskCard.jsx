@@ -3,7 +3,7 @@ import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Box, Text, Badge, Flex, Icon, Avatar, HStack, Tooltip } from "@chakra-ui/react";
-import { Clock } from "lucide-react";
+import { Clock, CheckSquare } from "lucide-react";
 
 export default function TaskCard({ task, onOpen, members }) {
   const {
@@ -70,6 +70,14 @@ export default function TaskCard({ task, onOpen, members }) {
             <Tooltip label={assignee.name} hasArrow>
               <Avatar size="2xs" name={assignee.name} src={assignee.avatarUrl} />
             </Tooltip>
+          )}
+          {task.subtasks?.length > 0 && (
+            <HStack spacing={1} color={task.subtasks.every(s => s.isCompleted) ? "green.400" : "whiteAlpha.500"}>
+              <CheckSquare size={11} />
+              <Text fontSize="10px" fontWeight="600">
+                {task.subtasks.filter(s => s.isCompleted).length}/{task.subtasks.length}
+              </Text>
+            </HStack>
           )}
         </HStack>
         

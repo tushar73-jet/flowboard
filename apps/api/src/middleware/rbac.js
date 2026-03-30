@@ -1,5 +1,5 @@
 const prisma = require('../lib/prisma');
-const { ClerkExpressRequireAuth } = require('@clerk/clerk-sdk-node');
+const { ClerkExpressRequireAuth, clerkClient } = require('@clerk/clerk-sdk-node');
 
 // Proper Clerk Auth Middleware Wrapper
 const authenticate = (req, res, next) => {
@@ -18,24 +18,44 @@ const authenticate = (req, res, next) => {
       // Sync Clerk User ID to our local Postgres database
       // Using findUnique then check to avoid upsert race conditions in some Prisma versions
       let user = await prisma.user.findUnique({ where: { id: userId } });
-      
+
+      // Fetch real name + email from Clerk on every request
+      // (cheap — Clerk SDK caches internally)
+      let clerkName = null;
+      let clerkEmail = null;
+      try {
+        const clerkUser = await clerkClient.users.getUser(userId);
+        clerkName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || clerkUser.username || null;
+        clerkEmail = clerkUser.emailAddresses?.[0]?.emailAddress || null;
+      } catch (e) {
+        console.warn('[AUTH] Could not fetch Clerk profile:', e.message);
+      }
+
       if (!user) {
         try {
           user = await prisma.user.create({
             data: {
               id: userId,
-              email: `clerk-${userId}@flowboard-user.com`,
-              name: 'Verified Clerk User'
+              email: clerkEmail || `clerk-${userId}@flowboard-user.com`,
+              name: clerkName || 'Flowboard User'
             }
           });
         } catch (createErr) {
-          // If another request created it in the meantime, just fetch it
           if (createErr.code === 'P2002') {
             user = await prisma.user.findUnique({ where: { id: userId } });
           } else {
             throw createErr;
           }
         }
+      } else if (clerkName && (user.name === 'Verified Clerk User' || user.name === 'Flowboard User' || !user.name)) {
+        // Update placeholder name with real Clerk name
+        user = await prisma.user.update({
+          where: { id: userId },
+          data: {
+            name: clerkName,
+            ...(clerkEmail && { email: clerkEmail })
+          }
+        });
       }
 
       if (!user) {

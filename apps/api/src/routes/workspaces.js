@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const { requireRole } = require('../middleware/rbac');
+const { logActivity } = require('../lib/activity');
 
 const router = express.Router();
 
