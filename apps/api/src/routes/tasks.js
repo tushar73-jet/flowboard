@@ -44,7 +44,7 @@ router.get('/', async (req, res) => {
     const access = await checkWorkspaceRole(req.user.id, workspaceId, ['OWNER', 'ADMIN', 'MEMBER']);
     if (!access.allowed) return res.status(access.status).json({ error: access.error });
 
-    const tasks = await prisma.task.findMany({ where: { projectId } });
+    const tasks = await prisma.task.findMany({ where: { projectId }, include: { subtasks: true } });
     res.json(tasks);
   } catch (err) {
     console.error('Fetch tasks error:', err);

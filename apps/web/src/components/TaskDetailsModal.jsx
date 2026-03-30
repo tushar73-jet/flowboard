@@ -6,19 +6,23 @@ import {
   Divider, FormControl, FormLabel, Avatar, Menu, MenuButton, MenuList, MenuItem,
   useToast
 } from "@chakra-ui/react";
-import { 
-  ChevronDown, Calendar, Signal, User, 
-  Trash2, MessageSquare, CheckCircle2 
+import {
+  ChevronDown, Calendar, Signal, User,
+  Trash2, MessageSquare, CheckCircle2, Plus
 } from "lucide-react";
+import { Checkbox, IconButton } from "@chakra-ui/react";
+import api from "@/lib/api";
 
-export default function TaskDetailsModal({ 
-  isOpen, onClose, task, members, onUpdate, onDelete 
+export default function TaskDetailsModal({
+  isOpen, onClose, task, members, onUpdate, onDelete
 }) {
   const [title, setTitle] = useState(task?.title || "");
   const [description, setDescription] = useState(task?.description || "");
   const [status, setStatus] = useState(task?.status || "TODO");
   const [priority, setPriority] = useState(task?.priority || "MEDIUM");
   const [assigneeId, setAssigneeId] = useState(task?.assigneeId || "");
+  const [subtasks, setSubtasks] = useState(task?.subtasks || []);
+  const [newSubtask, setNewSubtask] = useState("");
 
   const toast = useToast();
 
@@ -29,6 +33,7 @@ export default function TaskDetailsModal({
       setStatus(task.status);
       setPriority(task.priority);
       setAssigneeId(task.assigneeId || "");
+      setSubtasks(task.subtasks || []);
     }
   }, [task]);
 
@@ -47,6 +52,23 @@ export default function TaskDetailsModal({
       duration: 2000,
       isClosable: true,
     });
+  };
+
+  const handleAddSubtask = async (e) => {
+    if (e.key !== "Enter" || !newSubtask.trim()) return;
+    const { data } = await api.post("/subtasks", { taskId: task.id, title: newSubtask.trim() });
+    setSubtasks((prev) => [...prev, data]);
+    setNewSubtask("");
+  };
+
+  const handleToggle = async (st) => {
+    const { data } = await api.patch(`/subtasks/${st.id}`, { isCompleted: !st.isCompleted });
+    setSubtasks((prev) => prev.map((s) => (s.id === st.id ? data : s)));
+  };
+
+  const handleDeleteSubtask = async (id) => {
+    await api.delete(`/subtasks/${id}`);
+    setSubtasks((prev) => prev.filter((s) => s.id !== id));
   };
 
   const selectedAssignee = members.find(m => m.userId === assigneeId)?.user;
@@ -99,6 +121,60 @@ export default function TaskDetailsModal({
                   fontSize="sm"
                   pt={3}
                 />
+              </Box>
+
+              {/* Subtasks */}
+              <Box>
+                <HStack mb={2} spacing={2} color="whiteAlpha.500" justify="space-between">
+                  <HStack spacing={2}>
+                    <CheckCircle2 size={14} />
+                    <Text fontSize="xs" fontWeight="700" textTransform="uppercase">Subtasks</Text>
+                  </HStack>
+                  <Text fontSize="xs" color="whiteAlpha.400">
+                    {subtasks.filter(s => s.isCompleted).length}/{subtasks.length}
+                  </Text>
+                </HStack>
+
+                <VStack align="stretch" spacing={1} mb={2}>
+                  {subtasks.map((st) => (
+                    <HStack key={st.id} px={2} py={1} rounded="lg" _hover={{ bg: "whiteAlpha.50" }}>
+                      <Checkbox
+                        isChecked={st.isCompleted}
+                        onChange={() => handleToggle(st)}
+                        colorScheme="brand"
+                        size="sm"
+                      />
+                      <Text
+                        flex="1"
+                        fontSize="sm"
+                        color={st.isCompleted ? "whiteAlpha.400" : "white"}
+                        textDecoration={st.isCompleted ? "line-through" : "none"}
+                      >
+                        {st.title}
+                      </Text>
+                      <IconButton
+                        icon={<Trash2 size={12} />}
+                        size="xs"
+                        variant="ghost"
+                        colorScheme="red"
+                        aria-label="delete"
+                        onClick={() => handleDeleteSubtask(st.id)}
+                      />
+                    </HStack>
+                  ))}
+                </VStack>
+
+                <HStack bg="whiteAlpha.50" px={3} py={1} rounded="lg">
+                  <Plus size={13} color="#64748b" />
+                  <Input
+                    variant="unstyled"
+                    fontSize="sm"
+                    placeholder="Add subtask, press Enter"
+                    value={newSubtask}
+                    onChange={(e) => setNewSubtask(e.target.value)}
+                    onKeyDown={handleAddSubtask}
+                  />
+                </HStack>
               </Box>
 
               <HStack pt={4} justify="flex-end">
@@ -156,10 +232,10 @@ export default function TaskDetailsModal({
                   <MenuList bg="#1e293b" borderColor="whiteAlpha.100" maxH="200px" overflowY="auto">
                     <MenuItem bg="transparent" _hover={{ bg: "whiteAlpha.100" }} onClick={() => setAssigneeId("")}>Unassigned</MenuItem>
                     {members.map((m) => (
-                      <MenuItem 
+                      <MenuItem
                         key={m.userId}
-                        bg="transparent" 
-                        _hover={{ bg: "whiteAlpha.100" }} 
+                        bg="transparent"
+                        _hover={{ bg: "whiteAlpha.100" }}
                         onClick={() => setAssigneeId(m.userId)}
                       >
                         <HStack spacing={2}>
@@ -173,7 +249,7 @@ export default function TaskDetailsModal({
               </PropertyItem>
 
               <Divider borderColor="whiteAlpha.100" />
-              
+
               <Box>
                 <Text fontSize="10px" color="whiteAlpha.400" mb={1} textTransform="uppercase" letterSpacing="0.05em">Created At</Text>
                 <Text fontSize="xs" color="whiteAlpha.700">{new Date(task?.createdAt).toLocaleString()}</Text>

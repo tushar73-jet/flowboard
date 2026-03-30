@@ -29,7 +29,7 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   const [selectedTask, setSelectedTask] = useState(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
-  
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -67,7 +67,7 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
       } else if (active.data.current?.type === "Task") {
         const activeTask = active.data.current.task;
         const overId = over.id;
-        
+
         const overData = over.data.current;
         let newStatus = activeTask.status;
 
@@ -103,8 +103,8 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
             '&::-webkit-scrollbar-thumb': { background: 'whiteAlpha.300', borderRadius: '4px' },
           }}
         >
-          <SortableContext 
-            items={columns.map((c) => c.id)} 
+          <SortableContext
+            items={columns.map((c) => c.id)}
             strategy={horizontalListSortingStrategy}
           >
             {columns.map((col) => (
