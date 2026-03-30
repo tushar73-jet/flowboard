@@ -23,6 +23,7 @@ model User {
   stripeSubscriptionId   String?   @unique
   stripePriceId          String?
   stripeCurrentPeriodEnd DateTime?
+  activityLogs           ActivityLog[]
 }
 
 model Workspace {
@@ -37,6 +38,7 @@ model Workspace {
   members  WorkspaceMember[]
   projects Project[]
   labels   Label[]
+  activities ActivityLog[]
 }
 
 model WorkspaceMember {
@@ -117,5 +119,19 @@ model Label {
   tasks     Task[]
 
   @@unique([name, workspaceId])
+}
+model ActivityLog {
+  id          String   @id @default(uuid())
+  action      String   // e.g., "TASK_CREATED", "TASK_MOVED", "MEMBER_ADDED"
+  entityType  String   // "TASK", "PROJECT", "WORKSPACE", "MEMBER"
+  entityId    String
+  entityName  String?  // Name of the task/project for easier rendering without joining
+  userId      String
+  workspaceId String
+  metadata    Json?    // For storing status changes (from -> to), etc.
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 

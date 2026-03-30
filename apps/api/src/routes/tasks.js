@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const { checkWorkspaceRole } = require('../middleware/rbac');
+const { logActivity } = require('../lib/activity');
 
 const router = express.Router();
 
@@ -67,7 +68,15 @@ router.post('/', async (req, res) => {
       data: { title, description, status, priority, projectId, assigneeId }
     });
 
-    // 🔴→📡 Publish via Redis pub/sub
+    // 🔴→📡 Activity + Real-time
+    await logActivity({
+      workspaceId,
+      userId: req.user.id,
+      action: 'TASK_CREATED',
+      entityType: 'TASK',
+      entityId: task.id,
+      entityName: task.title
+    });
     emitTaskEvent(req, 'task_created', projectId, task);
 
     res.status(201).json(task);
@@ -98,7 +107,8 @@ router.put('/:id', async (req, res) => {
     });
     if (!existing) return res.status(404).json({ error: 'Task not found' });
 
-    const access = await checkWorkspaceRole(req.user.id, existing.project.workspaceId, ['OWNER', 'ADMIN', 'MEMBER']);
+    const workspaceId = existing.project.workspaceId;
+    const access = await checkWorkspaceRole(req.user.id, workspaceId, ['OWNER', 'ADMIN', 'MEMBER']);
     if (!access.allowed) return res.status(access.status).json({ error: access.error });
 
     const task = await prisma.task.update({
@@ -106,9 +116,20 @@ router.put('/:id', async (req, res) => {
       data: { title, description, status, priority, assigneeId }
     });
 
-    // 🔴→📡 Publish via Redis pub/sub
-    emitTaskEvent(req, 'task_updated', task.projectId, task);
+    // 🔴→📡 Activity Logging
+    if (status !== existing.status) {
+      await logActivity({
+        workspaceId,
+        userId: req.user.id,
+        action: 'TASK_MOVED',
+        entityType: 'TASK',
+        entityId: task.id,
+        entityName: task.title,
+        metadata: { from: existing.status, to: status }
+      });
+    }
 
+    emitTaskEvent(req, 'task_updated', task.projectId, task);
     res.json(task);
   } catch (err) {
     console.error('Update task error:', err);
@@ -125,12 +146,22 @@ router.delete('/:id', async (req, res) => {
     });
     if (!existing) return res.status(404).json({ error: 'Task not found' });
 
-    const access = await checkWorkspaceRole(req.user.id, existing.project.workspaceId, ['OWNER', 'ADMIN']);
+    const workspaceId = existing.project.workspaceId;
+    const access = await checkWorkspaceRole(req.user.id, workspaceId, ['OWNER', 'ADMIN']);
     if (!access.allowed) return res.status(access.status).json({ error: access.error });
 
     const task = await prisma.task.delete({ where: { id: req.params.id } });
 
-    // 🔴→📡 Publish via Redis pub/sub
+    // 🔴→📡 Activity
+    await logActivity({
+      workspaceId,
+      userId: req.user.id,
+      action: 'TASK_DELETED',
+      entityType: 'TASK',
+      entityId: task.id,
+      entityName: task.title
+    });
+
     emitTaskEvent(req, 'task_deleted', task.projectId, task.id);
 
     res.status(204).send();

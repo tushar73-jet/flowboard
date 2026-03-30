@@ -78,6 +78,17 @@ router.post('/:workspaceId/members', requireRole(['OWNER', 'ADMIN']), async (req
       create: { workspaceId, userId: user.id, role }
     });
 
+    // 🔴→📡 Activity
+    await logActivity({
+      workspaceId,
+      userId: req.user.id,
+      action: 'MEMBER_ADDED',
+      entityType: 'USER',
+      entityId: user.id,
+      entityName: user.name || user.email,
+      metadata: { role }
+    });
+
     res.json({ ...member, user: { name: user.name, email: user.email } });
   } catch (err) {
     console.error("Add Member Error:", err);
@@ -96,14 +107,45 @@ router.delete('/:workspaceId/members/:userId', requireRole(['OWNER', 'ADMIN']), 
       return res.status(403).json({ error: 'Cannot remove the workspace owner.' });
     }
 
+    const existingMember = await prisma.user.findUnique({ where: { id: userId } });
+
     await prisma.workspaceMember.delete({
       where: {
         workspaceId_userId: { workspaceId, userId }
       }
     });
+
+    // 🔴→📡 Activity
+    await logActivity({
+      workspaceId,
+      userId: req.user.id,
+      action: 'MEMBER_REMOVED',
+      entityType: 'USER',
+      entityId: userId,
+      entityName: existingMember?.name || existingMember?.email
+    });
+
     res.status(204).send();
   } catch (err) {
     res.status(500).json({ error: 'Failed to remove member' });
+  }
+});
+
+// Fetch Activity Feed (Any Member)
+router.get('/:workspaceId/activity', requireRole(['OWNER', 'ADMIN', 'MEMBER']), async (req, res) => {
+  const { workspaceId } = req.params;
+  try {
+    const activities = await prisma.activityLog.findMany({
+      where: { workspaceId },
+      include: { 
+        user: { select: { name: true, email: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    });
+    res.json(activities);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch activity feed' });
   }
 });
 
