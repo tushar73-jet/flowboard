@@ -12,6 +12,7 @@ export default function DashboardLayout({ children }) {
   const [workspaces, setWorkspaces] = useState([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(null);
   const [projects, setProjects] = useState([]);
+  const [members, setMembers] = useState([]);
   const [myRole, setMyRole] = useState(null);
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(true);
   const [loadingProjects, setLoadingProjects] = useState(false);
@@ -27,7 +28,7 @@ export default function DashboardLayout({ children }) {
       .finally(() => setLoadingWorkspaces(false));
   }, []);
 
-  // Load projects + role when workspace changes
+  // Load projects + members + role when workspace changes
   useEffect(() => {
     if (!selectedWorkspaceId) return;
     setLoadingProjects(true);
@@ -35,10 +36,12 @@ export default function DashboardLayout({ children }) {
     Promise.all([
       api.get(`/projects?workspaceId=${selectedWorkspaceId}`),
       api.get(`/workspaces/${selectedWorkspaceId}/my-role`),
+      api.get(`/workspaces/${selectedWorkspaceId}/members`),
     ])
-      .then(([projRes, roleRes]) => {
+      .then(([projRes, roleRes, memRes]) => {
         setProjects(projRes.data);
         setMyRole(roleRes.data.role);
+        setMembers(memRes.data);
       })
       .catch(console.error)
       .finally(() => setLoadingProjects(false));
@@ -50,6 +53,12 @@ export default function DashboardLayout({ children }) {
     setProjects(data);
   };
 
+  const refreshMembers = async () => {
+    if (!selectedWorkspaceId) return;
+    const { data } = await api.get(`/workspaces/${selectedWorkspaceId}/members`);
+    setMembers(data);
+  };
+
   const refreshWorkspaces = async () => {
     const { data } = await api.get("/workspaces");
     setWorkspaces(data);
@@ -58,8 +67,8 @@ export default function DashboardLayout({ children }) {
 
   const ctx = {
     workspaces, selectedWorkspaceId, setSelectedWorkspaceId,
-    projects, myRole, loadingProjects, loadingWorkspaces,
-    refreshProjects, refreshWorkspaces,
+    projects, members, myRole, loadingProjects, loadingWorkspaces,
+    refreshProjects, refreshMembers, refreshWorkspaces,
   };
 
   return (

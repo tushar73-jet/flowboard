@@ -2,10 +2,10 @@
 import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Box, Text, Badge, Flex, Icon } from "@chakra-ui/react";
+import { Box, Text, Badge, Flex, Icon, Avatar, HStack, Tooltip } from "@chakra-ui/react";
 import { Clock } from "lucide-react";
 
-export default function TaskCard({ task }) {
+export default function TaskCard({ task, onOpen, members }) {
   const {
     attributes,
     listeners,
@@ -30,19 +30,22 @@ export default function TaskCard({ task }) {
     LOW: "green",
   }[task.priority] || "gray";
 
+  const assignee = members?.find(m => m.userId === task.assigneeId)?.user;
+
   return (
     <Box
       ref={setNodeRef}
       style={style}
       {...attributes}
       {...listeners}
+      onClick={() => onOpen(task)}
       bg="card"
       p={4}
       rounded="xl"
       borderWidth="1px"
       borderColor={isDragging ? "brand.500" : "whiteAlpha.100"}
       boxShadow="sm"
-      cursor="grab"
+      cursor="pointer"
       transition="all 0.2s"
       _hover={{
         transform: "translateY(-2px)",
@@ -51,19 +54,26 @@ export default function TaskCard({ task }) {
         bg: "slate.700"
       }}
     >
-      <Text fontWeight="medium" fontSize="md" mb={2} color="whiteAlpha.900">
+      <Text fontWeight="600" fontSize="sm" mb={1} color="whiteAlpha.900" noOfLines={2}>
         {task.title}
       </Text>
-      <Text fontSize="sm" color="whiteAlpha.600" noOfLines={2} mb={4}>
-        {task.description}
+      <Text fontSize="xs" color="whiteAlpha.600" noOfLines={2} mb={4}>
+        {task.description || "No description provided."}
       </Text>
       
       <Flex justify="space-between" align="center">
-        <Badge colorScheme={priorityColor} fontSize="xs" variant="subtle" rounded="md" px={2}>
-          {task.priority}
-        </Badge>
+        <HStack spacing={2}>
+          <Badge colorScheme={priorityColor} fontSize="9px" variant="subtle" rounded="md" px={2} py={0.5}>
+            {task.priority}
+          </Badge>
+          {assignee && (
+            <Tooltip label={assignee.name} hasArrow>
+              <Avatar size="2xs" name={assignee.name} src={assignee.avatarUrl} />
+            </Tooltip>
+          )}
+        </HStack>
         
-        <Flex align="center" gap={1} color="whiteAlpha.500" fontSize="xs">
+        <Flex align="center" gap={1} color="whiteAlpha.500" fontSize="10px">
           <Icon as={Clock} boxSize={3} />
           {new Date(task.updatedAt).toLocaleDateString()}
         </Flex>

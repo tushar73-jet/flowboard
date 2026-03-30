@@ -65,7 +65,12 @@ export default function Column({ column, tasks }) {
       <VStack flex={1} spacing={3} align="stretch" minH="100px">
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} />
+            <TaskCard 
+              key={task.id} 
+              task={task} 
+              onOpen={column.onTaskOpen} 
+              members={column.members}
+            />
           ))}
         </SortableContext>
       </VStack>

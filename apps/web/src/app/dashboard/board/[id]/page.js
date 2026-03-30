@@ -10,7 +10,7 @@ export default function BoardPage() {
   const params = useParams();
   const projectId = params.id;
   const { data: tasks, isLoading, isError, updateTaskMutation, addTaskMutation } = useTasks(projectId);
-  const { projects, myRole } = useDashboard();
+  const { projects, members, myRole } = useDashboard();
 
   const project = projects?.find(p => p.id === projectId);
   const canAddTasks = myRole === "OWNER" || myRole === "ADMIN";
@@ -79,6 +79,7 @@ export default function BoardPage() {
 
       <Board
         tasks={tasks || []}
+        members={members || []}
         onTaskUpdate={(updatedTask) => updateTaskMutation.mutate(updatedTask)}
         onAddTask={handleAddTask}
         onColumnReorder={(newColumns) => {
