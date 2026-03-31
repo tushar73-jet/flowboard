@@ -32,14 +32,10 @@ export default function BoardPage() {
     );
   }
 
-  const handleAddTask = (status) => {
-    if (!canAddTasks) {
-      window.alert("Only Owners and Admins can create tasks.");
-      return;
-    }
-    const title = window.prompt("Task Title:");
-    if (!title) return;
-    addTaskMutation.mutate({ title, description: "", status, priority: "MEDIUM" });
+  const handleAddTask = (status, title) => {
+    if (!canAddTasks) return; // Column already hides the button for non-admins
+    if (!title?.trim()) return;
+    addTaskMutation.mutate({ title: title.trim(), description: "", status, priority: "MEDIUM" });
   };
 
   return (

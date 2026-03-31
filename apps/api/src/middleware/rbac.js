@@ -16,52 +16,15 @@ const authenticate = (req, res, next) => {
 
     try {
       // Sync Clerk User ID to our local Postgres database
-      // Using findUnique then check to avoid upsert race conditions in some Prisma versions
-      let user = await prisma.user.findUnique({ where: { id: userId } });
-
-      // Fetch real name + email from Clerk on every request
-      // (cheap — Clerk SDK caches internally)
-      let clerkName = null;
-      let clerkEmail = null;
-      try {
-        const clerkUser = await clerkClient.users.getUser(userId);
-        clerkName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || clerkUser.username || null;
-        clerkEmail = clerkUser.emailAddresses?.[0]?.emailAddress || null;
-      } catch (e) {
-        console.warn('[AUTH] Could not fetch Clerk profile:', e.message);
-      }
-
-      if (!user) {
-        try {
-          user = await prisma.user.create({
-            data: {
-              id: userId,
-              email: clerkEmail || `clerk-${userId}@flowboard-user.com`,
-              name: clerkName || 'Flowboard User'
-            }
-          });
-        } catch (createErr) {
-          if (createErr.code === 'P2002') {
-            user = await prisma.user.findUnique({ where: { id: userId } });
-          } else {
-            throw createErr;
-          }
+      let user = await prisma.user.upsert({
+        where: { id: userId },
+        update: {},
+        create: {
+          id: userId,
+          email: `${userId}@flowboard-user.com`,
+          name: 'Flowboard User'
         }
-      } else if (clerkName && (user.name === 'Verified Clerk User' || user.name === 'Flowboard User' || !user.name)) {
-        // Update placeholder name with real Clerk name
-        user = await prisma.user.update({
-          where: { id: userId },
-          data: {
-            name: clerkName,
-            ...(clerkEmail && { email: clerkEmail })
-          }
-        });
-      }
-
-      if (!user) {
-        console.warn(`[AUTH] User synchronization failed for userId: ${userId}`);
-        return res.status(401).json({ error: 'User synchronization failed' });
-      }
+      });
 
       req.user = user;
       console.log(`[AUTH] User authenticated: ${user.id} (${user.email})`);
@@ -74,7 +37,6 @@ const authenticate = (req, res, next) => {
 };
 
 /**
- * RBAC Middleware to check roles within a workspace
  * @param {string[]} allowedRoles - List of roles that are allowed (OWNER, ADMIN, MEMBER)
  */
 const requireRole = (allowedRoles = ['OWNER', 'ADMIN', 'MEMBER']) => {

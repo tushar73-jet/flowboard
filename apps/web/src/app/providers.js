@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ChakraProvider, extendTheme } from "@chakra-ui/react";
+import { ChakraProvider, extendTheme, theme as baseTheme } from "@chakra-ui/react";
 import { useState } from "react";
 
 // Modern dark theme config
@@ -27,6 +27,26 @@ const theme = extendTheme({
       body: {
         bg: 'canvas',
         color: 'white',
+      }
+    }
+  },
+  components: {
+    Button: {
+      variants: {
+        solid: (props) => {
+          if (props.colorScheme === 'brand') {
+            return {
+              bg: 'white',
+              color: 'black',
+              _hover: { bg: 'gray.200' },
+              _active: { bg: 'gray.300' },
+            };
+          }
+          // Preserve other default solid buttons like colorScheme="red"
+          return typeof baseTheme.components.Button.variants.solid === 'function' 
+            ? baseTheme.components.Button.variants.solid(props) 
+            : baseTheme.components.Button.variants.solid;
+        }
       }
     }
   }

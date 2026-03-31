@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Box, Flex, Heading, Text, Table, Tbody, Tr, Td, Th, Thead,
   Button, Input, Select, Badge, IconButton, useToast, Spinner,
   HStack, Card, CardBody, Avatar,
+  AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter
 } from "@chakra-ui/react";
 import { Trash2, UserPlus, Mail } from "lucide-react";
 import { useDashboard } from "@/app/dashboard/layout";
@@ -18,12 +19,20 @@ export default function TeamPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("MEMBER");
   const [inviting, setInviting] = useState(false);
+  
+  const [memberToRemove, setMemberToRemove] = useState(null);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const cancelRef = useRef();
+
   const toast = useToast();
 
   const canManageMembers = myRole === "OWNER" || myRole === "ADMIN";
 
   const fetchMembers = async () => {
-    if (!selectedWorkspaceId) return;
+    if (!selectedWorkspaceId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const { data } = await api.get(`/workspaces/${selectedWorkspaceId}/members`);
@@ -71,25 +80,38 @@ export default function TeamPage() {
     }
   };
 
-  const handleRemove = async (userId) => {
-    if (!window.confirm("Remove this member from the workspace?")) return;
-
+  const confirmRemove = async () => {
+    if (!memberToRemove) return;
+    setIsRemoving(true);
     try {
-      await api.delete(`/workspaces/${selectedWorkspaceId}/members/${userId}`);
-      setMembers(members.filter(m => m.userId !== userId));
+      await api.delete(`/workspaces/${selectedWorkspaceId}/members/${memberToRemove.userId}`);
+      setMembers(members.filter(m => m.userId !== memberToRemove.userId));
       toast({
         title: "Member removed",
         status: "info",
         duration: 2000,
       });
+      setMemberToRemove(null);
     } catch (err) {
       toast({
         title: "Failed to remove member",
         description: err.response?.data?.error || err.message,
         status: "error",
       });
+    } finally {
+      setIsRemoving(false);
     }
   };
+
+  if (!selectedWorkspaceId) {
+    return (
+      <Box p={8} maxW="1000px" mx="auto">
+        <Flex justify="center" align="center" h="400px">
+          <Text color="whiteAlpha.500" fontSize="lg">Add a workspace to manage and view team members.</Text>
+        </Flex>
+      </Box>
+    );
+  }
 
   return (
     <Box p={8} maxW="1000px" mx="auto">
@@ -198,7 +220,7 @@ export default function TeamPage() {
                           variant="ghost"
                           colorScheme="red"
                           aria-label="Remove member"
-                          onClick={() => handleRemove(m.userId)}
+                          onClick={() => setMemberToRemove(m)}
                           isDisabled={m.role === "OWNER"}
                         />
                       </Td>
@@ -210,6 +232,22 @@ export default function TeamPage() {
           </Box>
         </Box>
       </Flex>
+
+      {/* Remove Member Dialog */}
+      <AlertDialog isOpen={!!memberToRemove} leastDestructiveRef={cancelRef} onClose={() => setMemberToRemove(null)} isCentered blockScrollOnMount={false}>
+        <AlertDialogOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
+        <AlertDialogContent bg="#1e293b" color="white" rounded="xl" mx={4}>
+          <AlertDialogHeader fontSize="lg" fontWeight="bold">Remove Member</AlertDialogHeader>
+          <AlertDialogBody>
+            Are you sure you want to remove "{memberToRemove?.user?.name || memberToRemove?.user?.email}" from the workspace?
+          </AlertDialogBody>
+          <AlertDialogFooter>
+            <Button ref={cancelRef} onClick={() => setMemberToRemove(null)} variant="ghost" _hover={{ bg: "whiteAlpha.100" }}>Cancel</Button>
+            <Button colorScheme="red" onClick={confirmRemove} isLoading={isRemoving} ml={3}>Remove</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </Box>
   );
 }

@@ -7,6 +7,7 @@ import {
   PlusCircle, ArrowRightLeft, UserPlus, UserMinus, 
   Trash2, FolderPlus, CheckCircle 
 } from "lucide-react";
+import { useDashboard } from "@/app/dashboard/layout";
 
 const ACTION_ICONS = {
   TASK_CREATED: { icon: <PlusCircle size={14} />, color: "green.400" },
@@ -18,6 +19,18 @@ const ACTION_ICONS = {
 };
 
 export default function ActivityFeed({ activities, loading }) {
+  const { selectedWorkspaceId } = useDashboard();
+
+  if (!selectedWorkspaceId) {
+    return (
+      <Box py={10} textAlign="center" px={4}>
+        <Text color="whiteAlpha.500" fontSize="sm">
+          No workspace found. Please add one to view activity.
+        </Text>
+      </Box>
+    );
+  }
+
   if (loading) {
     return (
       <Flex py={10} justify="center">

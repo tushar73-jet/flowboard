@@ -1,10 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Box, Flex, Text, VStack, HStack, Select, Spinner,
   IconButton, Tooltip, Badge, Divider, Button,
+  useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton, Input, useToast,
+  AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter
 } from "@chakra-ui/react";
 import { UserButton } from "@clerk/nextjs";
 import { LayoutDashboard, FolderKanban, Plus, Trash2, ChevronRight, Settings, Users } from "lucide-react";
@@ -12,9 +14,9 @@ import { useDashboard } from "@/app/dashboard/layout";
 import api from "@/lib/api";
 
 const ROLE_META = {
-  OWNER:  { label: "Owner",  color: "purple" },
-  ADMIN:  { label: "Admin",  color: "blue"   },
-  MEMBER: { label: "Member", color: "green"  },
+  OWNER: { label: "Owner", color: "purple" },
+  ADMIN: { label: "Admin", color: "blue" },
+  MEMBER: { label: "Member", color: "green" },
 };
 
 export default function Sidebar() {
@@ -27,44 +29,65 @@ export default function Sidebar() {
   } = useDashboard();
 
   const [creating, setCreating] = useState(false);
+  const { isOpen: isWsOpen, onOpen: onWsOpen, onClose: onWsClose } = useDisclosure();
+  const { isOpen: isProjOpen, onOpen: onProjOpen, onClose: onProjClose } = useDisclosure();
+  const { isOpen: isDelOpen, onOpen: onDelOpen, onClose: onDelClose } = useDisclosure();
+  const cancelRef = useRef();
+
+  const [newWsName, setNewWsName] = useState("");
+  const [newProjName, setNewProjName] = useState("");
+  const toast = useToast();
 
   const canCreate = myRole === "OWNER" || myRole === "ADMIN";
   const canDelete = myRole === "OWNER";
   const roleMeta = myRole ? ROLE_META[myRole] : null;
 
-  const handleNewWorkspace = async () => {
-    const name = window.prompt("Workspace name:");
-    if (!name) return;
-    await api.post("/workspaces", { name });
-    const data = await refreshWorkspaces();
-    if (data.length > 0) setSelectedWorkspaceId(data[data.length - 1].id);
-  };
-
-  const handleNewProject = async () => {
-    if (!canCreate) return;
-    const name = window.prompt("Project name:");
-    if (!name) return;
+  const handleCreateWorkspace = async () => {
+    if (!newWsName.trim()) return;
     setCreating(true);
     try {
-      const { data: proj } = await api.post("/projects", { name, workspaceId: selectedWorkspaceId });
-      await refreshProjects();
-      router.push(`/dashboard/board/${proj.id}`);
+      await api.post("/workspaces", { name: newWsName });
+      const data = await refreshWorkspaces();
+      if (data.length > 0) setSelectedWorkspaceId(data[data.length - 1].id);
+      onWsClose();
+      setNewWsName("");
     } catch (e) {
-      window.alert(e.response?.data?.error || e.message);
+      toast({ title: "Error", description: e.response?.data?.error || e.message, status: "error", duration: 4000 });
     } finally {
       setCreating(false);
     }
   };
 
-  const handleDeleteWorkspace = async () => {
-    if (!window.confirm("Delete this workspace and ALL its projects? This cannot be undone.")) return;
+  const handleCreateProject = async () => {
+    if (!canCreate || !newProjName.trim()) return;
+    setCreating(true);
+    try {
+      const { data: proj } = await api.post("/projects", { name: newProjName, workspaceId: selectedWorkspaceId });
+      await refreshProjects();
+      router.push(`/dashboard/board/${proj.id}`);
+      onProjClose();
+      setNewProjName("");
+    } catch (e) {
+      toast({ title: "Error", description: e.response?.data?.error || e.message, status: "error", duration: 4000 });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const [isDeletingWs, setIsDeletingWs] = useState(false);
+
+  const confirmDeleteWorkspace = async () => {
+    setIsDeletingWs(true);
     try {
       await api.delete(`/workspaces/${selectedWorkspaceId}`);
       const data = await refreshWorkspaces();
       setSelectedWorkspaceId(data.length > 0 ? data[0].id : null);
       router.push("/dashboard");
     } catch (e) {
-      window.alert(e.response?.data?.error || e.message);
+      toast({ title: "Failed to delete", description: e.response?.data?.error || e.message, status: "error", duration: 4000 });
+    } finally {
+      setIsDeletingWs(false);
+      onDelClose();
     }
   };
 
@@ -84,7 +107,7 @@ export default function Sidebar() {
       overflow="hidden"
     >
       {/* ── Logo ───────────────────────────────────────── */}
-      <Flex px={5} py={5} align="center" gap={3} borderBottomWidth="1px" borderColor="whiteAlpha.50">
+      <Flex as={Link} href="/" style={{ textDecoration: 'none' }} px={5} py={5} align="center" gap={3} borderBottomWidth="1px" borderColor="whiteAlpha.50" _hover={{ bg: "whiteAlpha.100" }} cursor="pointer">
         <Box
           w={8} h={8} rounded="lg"
           bgGradient="linear(135deg, #6366f1, #8b5cf6)"
@@ -112,7 +135,7 @@ export default function Sidebar() {
               color="whiteAlpha.500"
               _hover={{ color: "white", bg: "whiteAlpha.100" }}
               aria-label="New workspace"
-              onClick={handleNewWorkspace}
+              onClick={onWsOpen}
             />
           </Tooltip>
         </Flex>
@@ -158,7 +181,7 @@ export default function Sidebar() {
                   colorScheme="red"
                   color="red.400"
                   aria-label="Delete workspace"
-                  onClick={handleDeleteWorkspace}
+                  onClick={onDelOpen}
                 />
               </Tooltip>
             )}
@@ -201,7 +224,7 @@ export default function Sidebar() {
                 color="whiteAlpha.500"
                 _hover={{ color: "white", bg: "whiteAlpha.100" }}
                 aria-label="New project"
-                onClick={handleNewProject}
+                onClick={onProjOpen}
                 isLoading={creating}
               />
             </Tooltip>
@@ -239,6 +262,70 @@ export default function Sidebar() {
           </Box>
         </Flex>
       </Box>
+
+      {/* Workspace Modal */}
+      <Modal isOpen={isWsOpen} onClose={onWsClose} isCentered blockScrollOnMount={false}>
+        <ModalOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
+        <ModalContent bg="#1e293b" color="white" rounded="xl" mx={4}>
+          <ModalHeader>Create Workspace</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Input
+              placeholder="Workspace name (e.g. Acme Corp)"
+              value={newWsName}
+              onChange={(e) => setNewWsName(e.target.value)}
+              bg="whiteAlpha.100"
+              border="none"
+              _focus={{ bg: "whiteAlpha.200" }}
+              onKeyDown={(e) => e.key === "Enter" && handleCreateWorkspace()}
+            />
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" _hover={{ bg: "whiteAlpha.100" }} onClick={onWsClose} mr={3}>Cancel</Button>
+            <Button colorScheme="brand" onClick={handleCreateWorkspace} isLoading={creating}>Create</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Project Modal */}
+      <Modal isOpen={isProjOpen} onClose={onProjClose} isCentered blockScrollOnMount={false}>
+        <ModalOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
+        <ModalContent bg="#1e293b" color="white" rounded="xl" mx={4}>
+          <ModalHeader>Create Project</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Input
+              placeholder="Project name (e.g. Beta Launch)"
+              value={newProjName}
+              onChange={(e) => setNewProjName(e.target.value)}
+              bg="whiteAlpha.100"
+              border="none"
+              _focus={{ bg: "whiteAlpha.200" }}
+              onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
+            />
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" _hover={{ bg: "whiteAlpha.100" }} onClick={onProjClose} mr={3}>Cancel</Button>
+            <Button colorScheme="brand" onClick={handleCreateProject} isLoading={creating}>Create</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Delete Workspace Dialog */}
+      <AlertDialog isOpen={isDelOpen} leastDestructiveRef={cancelRef} onClose={onDelClose} isCentered blockScrollOnMount={false}>
+        <AlertDialogOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
+        <AlertDialogContent bg="#1e293b" color="white" rounded="xl" mx={4}>
+          <AlertDialogHeader fontSize="lg" fontWeight="bold">Delete Workspace</AlertDialogHeader>
+          <AlertDialogBody>
+            Are you sure you want to delete this workspace and ALL its projects? This action cannot be undone.
+          </AlertDialogBody>
+          <AlertDialogFooter>
+            <Button ref={cancelRef} onClick={onDelClose} variant="ghost" _hover={{ bg: "whiteAlpha.100" }}>Cancel</Button>
+            <Button colorScheme="red" onClick={confirmDeleteWorkspace} isLoading={isDeletingWs} ml={3}>Delete</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </Flex>
   );
 }

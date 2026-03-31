@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -16,7 +16,7 @@ import {
 } from "@dnd-kit/sortable";
 import Column from "./Column";
 import TaskDetailsModal from "./TaskDetailsModal";
-import { Flex, useDisclosure } from "@chakra-ui/react";
+import { Flex, useDisclosure, useToast, AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter, Button } from "@chakra-ui/react";
 import api from "@/lib/api";
 
 const DEFAULT_COLUMNS = [
@@ -29,6 +29,10 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   const [selectedTask, setSelectedTask] = useState(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const toast = useToast();
+  const [taskToDelete, setTaskToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const cancelRef = useRef();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -40,14 +44,18 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
     onOpen();
   };
 
-  const handleDeleteTask = async (taskId) => {
-    if (!window.confirm("Are you sure you want to delete this task?")) return;
+  const handleDeleteTask = async () => {
+    if (!taskToDelete) return;
+    setIsDeleting(true);
     try {
-      await api.delete(`/tasks/${taskId}`);
+      await api.delete(`/tasks/${taskToDelete}`);
       onClose();
+      setTaskToDelete(null);
       // On real-time projects, the deletion will be synced via Socket.IO
     } catch (e) {
-      window.alert("Failed to delete task: " + e.message);
+      toast({ title: "Failed to delete task", description: e.message, status: "error", duration: 4000 });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -125,9 +133,24 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
           task={selectedTask}
           members={members || []}
           onUpdate={onTaskUpdate}
-          onDelete={handleDeleteTask}
+          onDelete={setTaskToDelete}
         />
       )}
+
+      {/* Delete Task Dialog */}
+      <AlertDialog isOpen={!!taskToDelete} leastDestructiveRef={cancelRef} onClose={() => setTaskToDelete(null)} isCentered blockScrollOnMount={false}>
+        <AlertDialogOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
+        <AlertDialogContent bg="#1e293b" color="white" rounded="xl" mx={4}>
+          <AlertDialogHeader fontSize="lg" fontWeight="bold">Delete Task</AlertDialogHeader>
+          <AlertDialogBody>
+            Are you sure you want to delete this task? This action cannot be undone.
+          </AlertDialogBody>
+          <AlertDialogFooter>
+            <Button ref={cancelRef} onClick={() => setTaskToDelete(null)} variant="ghost" _hover={{ bg: "whiteAlpha.100" }}>Cancel</Button>
+            <Button colorScheme="red" onClick={handleDeleteTask} isLoading={isDeleting} ml={3}>Delete</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

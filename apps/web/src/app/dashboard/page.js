@@ -1,12 +1,14 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   Box, Flex, Heading, Text, Grid, GridItem,
   Spinner, Badge, HStack, Button, Icon, Divider,
-  VStack, useToast
+  VStack, useToast, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton, Input,
+  AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter
 } from "@chakra-ui/react";
-import { FolderKanban, Plus, ArrowRight, Activity } from "lucide-react";
+import { FolderKanban, Plus, ArrowRight, Activity, Trash2 } from "lucide-react";
+import { IconButton } from "@chakra-ui/react";
 import { useDashboard } from "@/app/dashboard/layout";
 import ActivityFeed from "@/components/ActivityFeed";
 import api from "@/lib/api";
@@ -28,12 +30,22 @@ export default function DashboardPage() {
   const [loadingActivity, setLoadingActivity] = useState(true);
   const toast = useToast();
 
+  const { isOpen: isProjOpen, onOpen: onProjOpen, onClose: onProjClose } = useDisclosure();
+  const [newProjName, setNewProjName] = useState("");
+  const [creatingProj, setCreatingProj] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState(null);
+  const [deletingProj, setDeletingProj] = useState(false);
+  const cancelRef = useRef();
+
   const selectedWs = workspaces.find(w => w.id === selectedWorkspaceId);
   const canCreate = myRole === "OWNER" || myRole === "ADMIN";
   const roleMeta = myRole ? ROLE_META[myRole] : null;
 
   const fetchActivity = async () => {
-    if (!selectedWorkspaceId) return;
+    if (!selectedWorkspaceId) {
+      setLoadingActivity(false);
+      return;
+    }
     setLoadingActivity(true);
     try {
       const { data } = await api.get(`/workspaces/${selectedWorkspaceId}/activity`);
@@ -49,16 +61,35 @@ export default function DashboardPage() {
     fetchActivity();
   }, [selectedWorkspaceId]);
 
-  const handleNewProject = async () => {
-    const name = window.prompt("Project name:");
-    if (!name) return;
+  const handleCreateProject = async () => {
+    if (!newProjName.trim()) return;
+    setCreatingProj(true);
     try {
-      await api.post("/projects", { name, workspaceId: selectedWorkspaceId });
+      await api.post("/projects", { name: newProjName, workspaceId: selectedWorkspaceId });
       await refreshProjects();
       fetchActivity(); // Refresh activity after new project
       toast({ title: "Project created", status: "success", duration: 2000 });
+      onProjClose();
+      setNewProjName("");
     } catch (e) {
-      window.alert(e.response?.data?.error || e.message);
+      toast({ title: "Error", description: e.response?.data?.error || e.message, status: "error", duration: 4000 });
+    } finally {
+      setCreatingProj(false);
+    }
+  };
+
+  const confirmDeleteProject = async () => {
+    if (!projectToDelete) return;
+    setDeletingProj(true);
+    try {
+      await api.delete(`/projects/${projectToDelete.id}`);
+      await refreshProjects();
+      toast({ title: "Project deleted", status: "info", duration: 2000 });
+      setProjectToDelete(null);
+    } catch (e) {
+      toast({ title: "Failed to delete", description: e.response?.data?.error || e.message, status: "error", duration: 3000 });
+    } finally {
+      setDeletingProj(false);
     }
   };
 
@@ -85,19 +116,6 @@ export default function DashboardPage() {
                 Manage your team's projects and track progress.
               </Text>
             </Box>
-
-            {canCreate && (
-              <Button
-                leftIcon={<Plus size={16} />}
-                colorScheme="brand"
-                size="sm"
-                rounded="xl"
-                px={5}
-                onClick={handleNewProject}
-              >
-                New Project
-              </Button>
-            )}
           </Flex>
 
           {/* Projects Content */}
@@ -106,15 +124,17 @@ export default function DashboardPage() {
               <Spinner size="xl" color="brand.500" thickness="3px" />
             </Flex>
           ) : projects.length === 0 ? (
-            <EmptyProjects onNew={handleNewProject} canCreate={canCreate} />
+            <EmptyProjects onNew={onProjOpen} canCreate={canCreate} />
           ) : (
             <Grid templateColumns="repeat(auto-fill, minmax(280px, 1fr))" gap={5}>
               {projects.map((proj) => (
-                <ProjectCard key={proj.id} proj={proj} />
+                <ProjectCard key={proj.id} proj={proj} canDelete={canCreate} onDelete={() => {
+                  setProjectToDelete(proj);
+                }} />
               ))}
               {canCreate && (
                 <GridItem>
-                  <NewProjectPlaceholder onClick={handleNewProject} />
+                  <NewProjectPlaceholder onClick={onProjOpen} />
                 </GridItem>
               )}
             </Grid>
@@ -154,51 +174,102 @@ export default function DashboardPage() {
         </GridItem>
 
       </Grid>
+
+      {/* Project Modal */}
+      <Modal isOpen={isProjOpen} onClose={onProjClose} isCentered blockScrollOnMount={false}>
+        <ModalOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
+        <ModalContent bg="#1e293b" color="white" rounded="xl" mx={4}>
+          <ModalHeader>Create Project</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Input
+              placeholder="Project name (e.g. Website Overhaul)"
+              value={newProjName}
+              onChange={(e) => setNewProjName(e.target.value)}
+              bg="whiteAlpha.100"
+              border="none"
+              _focus={{ bg: "whiteAlpha.200" }}
+              onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
+            />
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" _hover={{ bg: "whiteAlpha.100" }} onClick={onProjClose} mr={3}>Cancel</Button>
+            <Button colorScheme="brand" onClick={handleCreateProject} isLoading={creatingProj}>Create</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Delete Project Dialog */}
+      <AlertDialog isOpen={!!projectToDelete} leastDestructiveRef={cancelRef} onClose={() => setProjectToDelete(null)} isCentered blockScrollOnMount={false}>
+        <AlertDialogOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
+        <AlertDialogContent bg="#1e293b" color="white" rounded="xl" mx={4}>
+          <AlertDialogHeader fontSize="lg" fontWeight="bold">Delete Project</AlertDialogHeader>
+          <AlertDialogBody>
+            Are you sure you want to delete "{projectToDelete?.name}"? This action cannot be undone.
+          </AlertDialogBody>
+          <AlertDialogFooter>
+            <Button ref={cancelRef} onClick={() => setProjectToDelete(null)} variant="ghost" _hover={{ bg: "whiteAlpha.100" }}>Cancel</Button>
+            <Button colorScheme="red" onClick={confirmDeleteProject} isLoading={deletingProj} ml={3}>Delete</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </Box>
   );
 }
 
-function ProjectCard({ proj }) {
+function ProjectCard({ proj, canDelete, onDelete }) {
   return (
-    <Link href={`/dashboard/board/${proj.id}`} style={{ textDecoration: "none" }}>
-      <Flex
-        direction="column"
-        justify="space-between"
-        h="160px"
-        p={6}
-        rounded="2xl"
-        bg="rgba(30, 41, 59, 0.6)"
-        border="1px solid"
-        borderColor="whiteAlpha.100"
-        _hover={{
-          borderColor: "brand.500",
-          transform: "translateY(-4px)",
-          bg: "rgba(30, 41, 59, 0.9)",
-          boxShadow: "0 10px 40px rgba(99,102,241,0.2)",
-        }}
-        transition="all 0.2s"
-        cursor="pointer"
-      >
+    <Box position="relative" role="group">
+      {canDelete && (
+        <IconButton
+          icon={<Trash2 size={14} />}
+          size="xs"
+          colorScheme="red"
+          variant="ghost"
+          aria-label="Delete project"
+          position="absolute"
+          top={3}
+          right={3}
+          zIndex={1}
+          opacity={0}
+          _groupHover={{ opacity: 1 }}
+          transition="opacity 0.2s"
+          onClick={(e) => { e.preventDefault(); onDelete(proj.id); }}
+        />
+      )}
+      <Link href={`/dashboard/board/${proj.id}`} style={{ textDecoration: "none" }}>
         <Flex
-          w={10} h={10} rounded="xl"
-          bg="rgba(99,102,241,0.15)"
-          align="center" justify="center"
-          color="brand.400"
+          direction="column"
+          justify="space-between"
+          h="160px"
+          p={6}
+          rounded="2xl"
+          bg="rgba(30, 41, 59, 0.6)"
+          border="1px solid"
+          borderColor="whiteAlpha.100"
+          _hover={{
+            borderColor: "brand.500",
+            transform: "translateY(-4px)",
+            bg: "rgba(30, 41, 59, 0.9)",
+            boxShadow: "0 10px 40px rgba(99,102,241,0.2)",
+          }}
+          transition="all 0.2s"
+          cursor="pointer"
         >
-          <FolderKanban size={20} />
+          <Flex w={10} h={10} rounded="xl" bg="rgba(99,102,241,0.15)" align="center" justify="center" color="brand.400">
+            <FolderKanban size={20} />
+          </Flex>
+          <Box mt={4}>
+            <Text fontWeight="700" color="white" fontSize="md" noOfLines={1} mb={1}>{proj.name}</Text>
+            <HStack justify="space-between" align="center">
+              <Text fontSize="xs" color="whiteAlpha.400">Task Board</Text>
+              <Icon as={ArrowRight} size={14} color="brand.500" />
+            </HStack>
+          </Box>
         </Flex>
-
-        <Box mt={4}>
-          <Text fontWeight="700" color="white" fontSize="md" noOfLines={1} mb={1}>
-            {proj.name}
-          </Text>
-          <HStack justify="space-between" align="center">
-            <Text fontSize="xs" color="whiteAlpha.400">Task Board</Text>
-            <Icon as={ArrowRight} size={14} color="brand.500" />
-          </HStack>
-        </Box>
-      </Flex>
-    </Link>
+      </Link>
+    </Box>
   );
 }
 

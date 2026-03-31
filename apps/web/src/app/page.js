@@ -42,9 +42,6 @@ export default function Home() {
             </SignUpButton>
           </SignedOut>
           <SignedIn>
-            <Button as={Link} href="/dashboard" size="sm" colorScheme="brand" rounded="xl" px={5} rightIcon={<ArrowRight size={14} />}>
-              Open Dashboard
-            </Button>
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
         </HStack>
