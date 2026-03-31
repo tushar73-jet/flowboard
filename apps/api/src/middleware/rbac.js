@@ -15,14 +15,30 @@ const authenticate = (req, res, next) => {
     }
 
     try {
+      let emailFromClerk = `${userId}@flowboard-user.com`;
+      let nameFromClerk = 'Flowboard User';
+      
+      try {
+        const clerkUser = await clerkClient.users.getUser(userId);
+        if (clerkUser.emailAddresses && clerkUser.emailAddresses.length > 0) {
+          emailFromClerk = clerkUser.emailAddresses[0].emailAddress;
+        }
+        nameFromClerk = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || nameFromClerk;
+      } catch (err) {
+        console.warn('[AUTH] Failed to fetch Clerk user details:', err.message);
+      }
+
       // Sync Clerk User ID to our local Postgres database
       let user = await prisma.user.upsert({
         where: { id: userId },
-        update: {},
+        update: {
+          email: emailFromClerk,
+          name: nameFromClerk
+        },
         create: {
           id: userId,
-          email: `${userId}@flowboard-user.com`,
-          name: 'Flowboard User'
+          email: emailFromClerk,
+          name: nameFromClerk
         }
       });
 
