@@ -1,7 +1,7 @@
 "use client";
 import { 
-  Box, VStack, HStack, Text, Flex, Badge, Spinner, 
-  Avatar, Divider, Heading 
+  Box, VStack, HStack, Text, Flex, Spinner, 
+  Divider 
 } from "@chakra-ui/react";
 import { 
   PlusCircle, ArrowRightLeft, UserPlus, UserMinus, 
@@ -57,7 +57,7 @@ export default function ActivityFeed({ activities, loading }) {
 }
 
 function ActivityItem({ activity }) {
-  const { action, entityType, entityName, user, createdAt, metadata } = activity;
+  const { action, entityName, user, createdAt, metadata } = activity;
   const config = ACTION_ICONS[action] || { icon: <CheckCircle size={14} />, color: "gray.400" };
 
   const getActionText = () => {

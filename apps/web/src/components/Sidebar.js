@@ -9,7 +9,7 @@ import {
   AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter
 } from "@chakra-ui/react";
 import { UserButton } from "@clerk/nextjs";
-import { LayoutDashboard, FolderKanban, Plus, Trash2, ChevronRight, Settings, Users } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Plus, Trash2, ChevronRight, Users } from "lucide-react";
 import { useDashboard } from "@/app/dashboard/layout";
 import api from "@/lib/api";
 
