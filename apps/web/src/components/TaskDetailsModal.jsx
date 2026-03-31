@@ -2,12 +2,12 @@
 import React, { useState, useEffect } from "react";
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton,
-  VStack, HStack, Text, Box, Input, Textarea, Select, Badge, Button,
-  Divider, FormControl, FormLabel, Avatar, Menu, MenuButton, MenuList, MenuItem,
+  VStack, HStack, Text, Box, Input, Textarea, Select, Button,
+  Divider, Avatar, Menu, MenuButton, MenuList, MenuItem,
   useToast
 } from "@chakra-ui/react";
 import {
-  ChevronDown, Calendar, Signal, User,
+  ChevronDown,
   Trash2, MessageSquare, CheckCircle2, Plus
 } from "lucide-react";
 import { Checkbox, IconButton } from "@chakra-ui/react";
