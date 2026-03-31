@@ -37,7 +37,7 @@ export default function Home() {
             </SignInButton>
             <SignUpButton mode="modal">
               <Button size="sm" colorScheme="brand" rounded="xl" px={5}>
-                Get Started
+                Sign Up
               </Button>
             </SignUpButton>
           </SignedOut>
@@ -99,21 +99,6 @@ export default function Home() {
                 Start for free
               </Button>
             </SignUpButton>
-            <SignInButton mode="modal">
-              <Button
-                size="lg"
-                variant="outline"
-                borderColor="whiteAlpha.200"
-                color="whiteAlpha.700"
-                _hover={{ borderColor: "brand.500", color: "white" }}
-                px={8}
-                rounded="xl"
-                h="52px"
-                fontSize="md"
-              >
-                Sign In
-              </Button>
-            </SignInButton>
           </HStack>
         </SignedOut>
 
