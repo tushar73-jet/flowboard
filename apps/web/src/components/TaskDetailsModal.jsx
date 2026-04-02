@@ -333,6 +333,3 @@ function IconBadge({ icon, color }) {
     </Flex>
   );
 }
-
-import { Flex as Flex_ } from "@chakra-ui/react";
-const Flex = Flex_;

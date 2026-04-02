@@ -5,7 +5,6 @@ const { logActivity } = require('../lib/activity');
 
 const router = express.Router();
 
-// Create workspace
 router.post('/', async (req, res) => {
   const { name, description } = req.body;
   try {
@@ -14,7 +13,6 @@ router.post('/', async (req, res) => {
         name,
         description,
         ownerId: req.user.id,
-        // The owner is automatically an ADMIN in the membership table too
         members: {
           create: {
             userId: req.user.id,
@@ -30,7 +28,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// List workspaces where the user is a member or owner
 router.get('/', async (req, res) => {
   try {
     const workspaces = await prisma.workspace.findMany({
@@ -53,7 +50,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Add/Invite Member to Workspace by Email (Only Owner or Admin)
 router.post('/:workspaceId/members', requireRole(['OWNER', 'ADMIN']), async (req, res) => {
   const { workspaceId } = req.params;
   const { email, role = 'MEMBER' } = req.body;
@@ -61,7 +57,6 @@ router.post('/:workspaceId/members', requireRole(['OWNER', 'ADMIN']), async (req
   if (!email) return res.status(400).json({ error: 'Email is required' });
 
   try {
-    // 1. Find user by email in our local Prisma DB
     const user = await prisma.user.findUnique({ where: { email } });
     
     if (!user) {
@@ -70,7 +65,6 @@ router.post('/:workspaceId/members', requireRole(['OWNER', 'ADMIN']), async (req
       });
     }
 
-    // 2. Upsert membership
     const member = await prisma.workspaceMember.upsert({
       where: {
         workspaceId_userId: { workspaceId, userId: user.id }
@@ -79,7 +73,6 @@ router.post('/:workspaceId/members', requireRole(['OWNER', 'ADMIN']), async (req
       create: { workspaceId, userId: user.id, role }
     });
 
-    // 🔴→📡 Activity
     await logActivity({
       workspaceId,
       userId: req.user.id,
@@ -97,12 +90,10 @@ router.post('/:workspaceId/members', requireRole(['OWNER', 'ADMIN']), async (req
   }
 });
 
-// Remove Member (Only Owner or Admin, and can't remove yourself if Owner)
 router.delete('/:workspaceId/members/:userId', requireRole(['OWNER', 'ADMIN']), async (req, res) => {
   const { workspaceId, userId } = req.params;
 
   try {
-    // Check if trying to remove the owner
     const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
     if (workspace.ownerId === userId) {
       return res.status(403).json({ error: 'Cannot remove the workspace owner.' });
@@ -116,7 +107,6 @@ router.delete('/:workspaceId/members/:userId', requireRole(['OWNER', 'ADMIN']), 
       }
     });
 
-    // 🔴→📡 Activity
     await logActivity({
       workspaceId,
       userId: req.user.id,
@@ -132,7 +122,6 @@ router.delete('/:workspaceId/members/:userId', requireRole(['OWNER', 'ADMIN']), 
   }
 });
 
-// Fetch Activity Feed (Any Member)
 router.get('/:workspaceId/activity', requireRole(['OWNER', 'ADMIN', 'MEMBER']), async (req, res) => {
   const { workspaceId } = req.params;
   try {
@@ -150,7 +139,6 @@ router.get('/:workspaceId/activity', requireRole(['OWNER', 'ADMIN', 'MEMBER']), 
   }
 });
 
-// Delete workspace (Only Owner)
 router.delete('/:workspaceId', requireRole(['OWNER']), async (req, res) => {
   try {
     await prisma.workspace.delete({ where: { id: req.params.workspaceId } });
@@ -160,7 +148,6 @@ router.delete('/:workspaceId', requireRole(['OWNER']), async (req, res) => {
   }
 });
 
-// List Workspace Members (Any Member)
 router.get('/:workspaceId/members', requireRole(['OWNER', 'ADMIN', 'MEMBER']), async (req, res) => {
   const { workspaceId } = req.params;
   try {
@@ -174,7 +161,6 @@ router.get('/:workspaceId/members', requireRole(['OWNER', 'ADMIN', 'MEMBER']), a
   }
 });
 
-// Get current user's role in a workspace
 router.get('/:workspaceId/my-role', async (req, res) => {
   const { workspaceId } = req.params;
   try {

@@ -3,7 +3,6 @@ const prisma = require('../lib/prisma');
 
 const router = express.Router();
 
-// GET /comments?taskId=xxx
 router.get('/', async (req, res) => {
   const { taskId } = req.query;
   if (!taskId) return res.status(400).json({ error: 'taskId required' });
@@ -20,7 +19,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /comments
 router.post('/', async (req, res) => {
   const { taskId, content } = req.body;
   if (!taskId || !content) return res.status(400).json({ error: 'taskId and content required' });
@@ -36,7 +34,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// DELETE /comments/:id
 router.delete('/:id', async (req, res) => {
   try {
     const comment = await prisma.comment.findUnique({ where: { id: req.params.id } });

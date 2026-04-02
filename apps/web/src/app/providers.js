@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ChakraProvider, extendTheme, theme as baseTheme } from "@chakra-ui/react";
 import { useState } from "react";
 
-// Modern dark theme config
 const theme = extendTheme({
   config: {
     initialColorMode: 'dark',
@@ -42,7 +41,6 @@ const theme = extendTheme({
               _active: { bg: 'gray.300' },
             };
           }
-          // Preserve other default solid buttons like colorScheme="red"
           return typeof baseTheme.components.Button.variants.solid === 'function' 
             ? baseTheme.components.Button.variants.solid(props) 
             : baseTheme.components.Button.variants.solid;
@@ -60,7 +58,6 @@ function AxiosClerkSync() {
   const { getToken } = useAuth();
 
   useEffect(() => {
-    // Add interceptor once
     const interceptor = api.interceptors.request.use(async (config) => {
       try {
         const token = await getToken();

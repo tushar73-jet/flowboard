@@ -67,7 +67,7 @@ export default function DashboardPage() {
     try {
       await api.post("/projects", { name: newProjName, workspaceId: selectedWorkspaceId });
       await refreshProjects();
-      fetchActivity(); // Refresh activity after new project
+      fetchActivity();
       toast({ title: "Project created", status: "success", duration: 2000 });
       onProjClose();
       setNewProjName("");
@@ -97,9 +97,7 @@ export default function DashboardPage() {
     <Box p={8} minH="100vh" maxW="1400px" mx="auto">
       <Grid templateColumns={{ base: "1fr", lg: "1fr 320px" }} gap={10}>
         
-        {/* Main Column: Projects */}
         <GridItem>
-          {/* Header */}
           <Flex justify="space-between" align="flex-start" mb={8}>
             <Box>
               <HStack spacing={3} mb={1}>
@@ -118,7 +116,6 @@ export default function DashboardPage() {
             </Box>
           </Flex>
 
-          {/* Projects Content */}
           {loadingProjects ? (
             <Flex justify="center" align="center" h="300px">
               <Spinner size="xl" color="brand.500" thickness="3px" />
@@ -141,7 +138,6 @@ export default function DashboardPage() {
           )}
         </GridItem>
 
-        {/* Sidebar Column: Activity Feed */}
         <GridItem>
           <Box 
             bg="rgba(15, 23, 42, 0.4)" 
@@ -175,7 +171,6 @@ export default function DashboardPage() {
 
       </Grid>
 
-      {/* Project Modal */}
       <Modal isOpen={isProjOpen} onClose={onProjClose} isCentered blockScrollOnMount={false}>
         <ModalOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
         <ModalContent bg="#1e293b" color="white" rounded="xl" mx={4}>
@@ -199,7 +194,6 @@ export default function DashboardPage() {
         </ModalContent>
       </Modal>
 
-      {/* Delete Project Dialog */}
       <AlertDialog isOpen={!!projectToDelete} leastDestructiveRef={cancelRef} onClose={() => setProjectToDelete(null)} isCentered blockScrollOnMount={false}>
         <AlertDialogOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
         <AlertDialogContent bg="#1e293b" color="white" rounded="xl" mx={4}>

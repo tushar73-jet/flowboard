@@ -88,7 +88,6 @@ export default function Column({ column, tasks }) {
         </SortableContext>
       </VStack>
 
-      {/* Inline task creation */}
       {adding ? (
         <Box mt={4} p={2} bg="whiteAlpha.50" rounded="xl" border="1px solid" borderColor="brand.500">
           <Input

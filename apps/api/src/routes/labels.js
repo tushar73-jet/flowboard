@@ -1,10 +1,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 
-const router = express.Router();
-
-// GET /labels?workspaceId=xxx
-router.get('/', async (req, res) => {
+const router = express.Router();router.get('/', async (req, res) => {
   const { workspaceId } = req.query;
   if (!workspaceId) return res.status(400).json({ error: 'workspaceId required' });
 
@@ -16,7 +13,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /labels
 router.post('/', async (req, res) => {
   const { workspaceId, name, color } = req.body;
   if (!workspaceId || !name) return res.status(400).json({ error: 'workspaceId and name required' });
@@ -31,7 +27,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PATCH /labels/:id — rename or recolor
 router.patch('/:id', async (req, res) => {
   const { name, color } = req.body;
   try {
@@ -45,7 +40,6 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
-// DELETE /labels/:id
 router.delete('/:id', async (req, res) => {
   try {
     await prisma.label.delete({ where: { id: req.params.id } });

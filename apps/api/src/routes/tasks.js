@@ -10,7 +10,6 @@ async function resolveWorkspace(projectId) {
   return project?.workspaceId || null;
 }
 
-// GET /tasks?projectId=xxx  — any workspace member
 router.get('/', async (req, res) => {
   const { projectId } = req.query;
   if (!projectId) return res.status(400).json({ error: 'projectId is required' });
@@ -30,7 +29,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /tasks  — Owner or Admin only
 router.post('/', async (req, res) => {
   const { title, description, status, priority, projectId, assigneeId } = req.body;
   if (!projectId) return res.status(400).json({ error: 'projectId is required' });
@@ -46,7 +44,6 @@ router.post('/', async (req, res) => {
       data: { title, description, status, priority, projectId, assigneeId }
     });
 
-    // 🔴→📡 Activity + Real-time
     await logActivity({
       workspaceId,
       userId: req.user.id,
@@ -64,7 +61,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /tasks/:id  — any workspace member (drag-drop)
 router.put('/:id', async (req, res) => {
   const { title, description, status, priority, assigneeId } = req.body;
 
@@ -84,7 +80,6 @@ router.put('/:id', async (req, res) => {
       data: { title, description, status, priority, assigneeId }
     });
 
-    // 🔴→📡 Activity Logging
     if (status !== existing.status) {
       await logActivity({
         workspaceId,
@@ -105,7 +100,6 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /tasks/:id  — Owner or Admin only
 router.delete('/:id', async (req, res) => {
   try {
     const existing = await prisma.task.findUnique({
@@ -120,7 +114,6 @@ router.delete('/:id', async (req, res) => {
 
     const task = await prisma.task.delete({ where: { id: req.params.id } });
 
-    // 🔴→📡 Activity
     await logActivity({
       workspaceId,
       userId: req.user.id,

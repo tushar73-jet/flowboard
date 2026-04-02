@@ -1,7 +1,6 @@
 const prisma = require('../lib/prisma');
 const { ClerkExpressRequireAuth, clerkClient } = require('@clerk/clerk-sdk-node');
 
-// Proper Clerk Auth Middleware Wrapper
 const authenticate = (req, res, next) => {
   ClerkExpressRequireAuth()(req, res, async (err) => {
     if (err) {
@@ -28,7 +27,6 @@ const authenticate = (req, res, next) => {
         console.warn('[AUTH] Failed to fetch Clerk user details:', err.message);
       }
 
-      // Sync Clerk User ID to our local Postgres database
       let user = await prisma.user.upsert({
         where: { id: userId },
         update: {
@@ -52,23 +50,17 @@ const authenticate = (req, res, next) => {
   });
 };
 
-/**
- * @param {string[]} allowedRoles - List of roles that are allowed (OWNER, ADMIN, MEMBER)
- */
 const requireRole = (allowedRoles = ['OWNER', 'ADMIN', 'MEMBER']) => {
   return async (req, res, next) => {
     const workspaceId = (req.params && req.params.workspaceId) || (req.body && req.body.workspaceId) || (req.query && req.query.workspaceId);
     
     if (!workspaceId) {
-      // If we can't find workspaceId in params/body/query, we might be on a sub-resource
-      // but for simplicity, we expect it to be provided or resolved beforehand.
       return res.status(400).json({ error: 'Workspace ID is required for role verification' });
     }
 
     try {
       console.log(`[RBAC] Checking role for user ${req.user.id} in workspace ${workspaceId}`);
       
-      // First check if user is the Owner of the workspace
       const workspace = await prisma.workspace.findUnique({
         where: { id: workspaceId }
       });
@@ -83,7 +75,6 @@ const requireRole = (allowedRoles = ['OWNER', 'ADMIN', 'MEMBER']) => {
         return next();
       }
 
-      // If not owner, check WorkspaceMember table
       const membership = await prisma.workspaceMember.findUnique({
         where: {
           workspaceId_userId: {
@@ -104,7 +95,7 @@ const requireRole = (allowedRoles = ['OWNER', 'ADMIN', 'MEMBER']) => {
       }
 
       console.log(`[RBAC] User ${req.user.id} granted access with role ${membership.role}`);
-      req.membership = membership; // Inject membership info
+      req.membership = membership;
       next();
     } catch (err) {
       console.error("[RBAC] Error during role verification:", err);
@@ -113,11 +104,6 @@ const requireRole = (allowedRoles = ['OWNER', 'ADMIN', 'MEMBER']) => {
   };
 };
 
-/**
- * Helper: check if a user has the required role in a workspace.
- * Returns { allowed: true, role: 'OWNER'|'ADMIN'|'MEMBER' } or { allowed: false, status, error }
- * Call this INSIDE route handlers (after workspaceId is known).
- */
 async function checkWorkspaceRole(userId, workspaceId, allowedRoles = ['OWNER', 'ADMIN', 'MEMBER']) {
   const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
   if (!workspace) return { allowed: false, status: 404, error: 'Workspace not found' };

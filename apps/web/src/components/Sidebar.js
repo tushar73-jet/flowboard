@@ -106,7 +106,6 @@ export default function Sidebar() {
       zIndex={20}
       overflow="hidden"
     >
-      {/* ── Logo ───────────────────────────────────────── */}
       <Flex as={Link} href="/" style={{ textDecoration: 'none' }} px={5} py={5} align="center" gap={3} borderBottomWidth="1px" borderColor="whiteAlpha.50" _hover={{ bg: "whiteAlpha.100" }} cursor="pointer">
         <Box
           w={8} h={8} rounded="lg"
@@ -121,7 +120,6 @@ export default function Sidebar() {
         </Text>
       </Flex>
 
-      {/* ── Workspace Selector ─────────────────────────── */}
       <Box px={4} pt={5} pb={3}>
         <Flex justify="space-between" align="center" mb={2}>
           <Text fontSize="0.65rem" fontWeight="700" color="whiteAlpha.400" letterSpacing="0.1em" textTransform="uppercase">
@@ -159,7 +157,6 @@ export default function Sidebar() {
           ))}
         </Select>
 
-        {/* Role Badge */}
         {roleMeta && (
           <HStack mt={2} spacing={2}>
             <Badge
@@ -191,7 +188,6 @@ export default function Sidebar() {
 
       <Divider borderColor="whiteAlpha.50" />
 
-      {/* ── Nav items ──────────────────────────────────── */}
       <Box px={3} pt={4} pb={2}>
         <NavItem
           icon={<LayoutDashboard size={15} />}
@@ -209,7 +205,6 @@ export default function Sidebar() {
 
       <Divider borderColor="whiteAlpha.50" />
 
-      {/* ── Projects ───────────────────────────────────── */}
       <Box px={4} pt={4} flex="1" overflow="auto">
         <Flex justify="space-between" align="center" mb={3}>
           <Text fontSize="0.65rem" fontWeight="700" color="whiteAlpha.400" letterSpacing="0.1em" textTransform="uppercase">
@@ -252,7 +247,6 @@ export default function Sidebar() {
         )}
       </Box>
 
-      {/* ── Bottom: User ───────────────────────────────── */}
       <Box p={4} borderTopWidth="1px" borderColor="whiteAlpha.50">
         <Flex align="center" gap={3}>
           <UserButton afterSignOutUrl="/" />
@@ -263,7 +257,6 @@ export default function Sidebar() {
         </Flex>
       </Box>
 
-      {/* Workspace Modal */}
       <Modal isOpen={isWsOpen} onClose={onWsClose} isCentered blockScrollOnMount={false}>
         <ModalOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
         <ModalContent bg="#1e293b" color="white" rounded="xl" mx={4}>
@@ -287,7 +280,6 @@ export default function Sidebar() {
         </ModalContent>
       </Modal>
 
-      {/* Project Modal */}
       <Modal isOpen={isProjOpen} onClose={onProjClose} isCentered blockScrollOnMount={false}>
         <ModalOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
         <ModalContent bg="#1e293b" color="white" rounded="xl" mx={4}>
@@ -311,7 +303,6 @@ export default function Sidebar() {
         </ModalContent>
       </Modal>
 
-      {/* Delete Workspace Dialog */}
       <AlertDialog isOpen={isDelOpen} leastDestructiveRef={cancelRef} onClose={onDelClose} isCentered blockScrollOnMount={false}>
         <AlertDialogOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
         <AlertDialogContent bg="#1e293b" color="white" rounded="xl" mx={4}>

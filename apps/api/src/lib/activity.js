@@ -1,8 +1,5 @@
 const prisma = require('./prisma');
 
-/**
- * Log a user action to the workspace activity feed.
- */
 async function logActivity({ 
   workspaceId, 
   userId, 
@@ -25,7 +22,6 @@ async function logActivity({
       }
     });
 
-    // Optional: Real-time broadcast if passed Socket.IO can be handled later
     return log;
   } catch (err) {
     console.warn(`[ACTIVITY] Failed to log ${action}:`, err.message);

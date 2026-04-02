@@ -5,7 +5,6 @@ const { logActivity } = require('../lib/activity');
 
 const router = express.Router();
 
-// GET /projects?workspaceId=xxx  — any workspace member
 router.get('/', async (req, res) => {
   const { workspaceId } = req.query;
   if (!workspaceId) return res.status(400).json({ error: 'workspaceId is required' });
@@ -22,7 +21,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /projects  — Owner or Admin only
 router.post('/', async (req, res) => {
   const { name, description, workspaceId } = req.body;
   if (!workspaceId) return res.status(400).json({ error: 'workspaceId is required' });
@@ -41,7 +39,6 @@ router.post('/', async (req, res) => {
   }
 });
 
-// DELETE /projects/:id  — Owner only
 router.delete('/:id', async (req, res) => {
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.id } });

@@ -4,7 +4,6 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("Seeding database...");
   
-  // 1. Create a User mapped to the frontend API header token
   const user = await prisma.user.upsert({
     where: { email: 'test@example.com' },
     update: {},
@@ -15,7 +14,6 @@ async function main() {
     },
   });
 
-  // 2. Create a Workspace
   const workspace = await prisma.workspace.create({
     data: {
       name: 'My Workspace',
@@ -29,7 +27,6 @@ async function main() {
     }
   });
 
-  // 3. Create a Project
   const project = await prisma.project.create({
     data: {
       name: 'Live Board',
@@ -37,7 +34,6 @@ async function main() {
     }
   });
 
-  // 4. Create some initial real tasks
   await prisma.task.createMany({
     data: [
       { title: 'Test actual DB connection', description: 'This is loaded from PostgreSQL', status: 'TODO', priority: 'HIGH', projectId: project.id },
