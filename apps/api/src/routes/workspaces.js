@@ -124,16 +124,23 @@ router.delete('/:workspaceId/members/:userId', requireRole(['OWNER', 'ADMIN']), 
 
 router.get('/:workspaceId/activity', requireRole(['OWNER', 'ADMIN', 'MEMBER']), async (req, res) => {
   const { workspaceId } = req.params;
+  const { cursor, limit = 50 } = req.query;
+  const take = parseInt(limit);
+
   try {
     const activities = await prisma.activityLog.findMany({
       where: { workspaceId },
       include: { 
         user: { select: { name: true, email: true } }
       },
-      orderBy: { createdAt: 'desc' },
-      take: 50
+      orderBy: { id: 'desc' }, // Consistent sorting for cursor
+      take: take,
+      ...(cursor && { skip: 1, cursor: { id: cursor } })
     });
-    res.json(activities);
+    res.json({
+      activities,
+      nextCursor: activities.length === take ? activities[activities.length - 1].id : null
+    });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch activity feed' });
   }

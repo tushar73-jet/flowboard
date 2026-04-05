@@ -21,7 +21,10 @@ router.get('/', async (req, res) => {
     const access = await checkWorkspaceRole(req.user.id, workspaceId, ['OWNER', 'ADMIN', 'MEMBER']);
     if (!access.allowed) return res.status(access.status).json({ error: access.error });
 
-    const tasks = await prisma.task.findMany({ where: { projectId }, include: { subtasks: true } });
+    const tasks = await prisma.task.findMany({ 
+      where: { projectId }, 
+      include: { subtasks: true, labels: true } 
+    });
     res.json(tasks);
   } catch (err) {
     console.error('Fetch tasks error:', err);
@@ -30,7 +33,7 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { title, description, status, priority, projectId, assigneeId } = req.body;
+  const { title, description, status, priority, projectId, assigneeId, dueDate } = req.body;
   if (!projectId) return res.status(400).json({ error: 'projectId is required' });
 
   try {
@@ -41,7 +44,16 @@ router.post('/', async (req, res) => {
     if (!access.allowed) return res.status(access.status).json({ error: access.error });
 
     const task = await prisma.task.create({
-      data: { title, description, status, priority, projectId, assigneeId }
+      data: { 
+        title, 
+        description, 
+        status, 
+        priority, 
+        projectId, 
+        assigneeId, 
+        dueDate: dueDate ? new Date(dueDate) : null 
+      },
+      include: { labels: true }
     });
 
     await logActivity({
@@ -62,7 +74,7 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const { title, description, status, priority, assigneeId } = req.body;
+  const { title, description, status, priority, assigneeId, dueDate } = req.body;
 
   try {
     const existing = await prisma.task.findUnique({
@@ -77,7 +89,15 @@ router.put('/:id', async (req, res) => {
 
     const task = await prisma.task.update({
       where: { id: req.params.id },
-      data: { title, description, status, priority, assigneeId }
+      data: { 
+        title, 
+        description, 
+        status, 
+        priority, 
+        assigneeId,
+        dueDate: dueDate !== undefined ? (dueDate ? new Date(dueDate) : null) : undefined
+      },
+      include: { labels: true }
     });
 
     if (status !== existing.status) {
@@ -129,6 +149,48 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error('Delete task error:', err);
     res.status(500).json({ error: 'Failed to delete task', details: err.message });
+  }
+});
+
+router.put('/:id/labels', async (req, res) => {
+  const { labelIds } = req.body; // Array of UUIDs
+
+  try {
+    const existing = await prisma.task.findUnique({
+      where: { id: req.params.id },
+      include: { project: true }
+    });
+    if (!existing) return res.status(404).json({ error: 'Task not found' });
+
+    const workspaceId = existing.project.workspaceId;
+    const access = await checkWorkspaceRole(req.user.id, workspaceId, ['OWNER', 'ADMIN', 'MEMBER']);
+    if (!access.allowed) return res.status(access.status).json({ error: access.error });
+
+    const task = await prisma.task.update({
+      where: { id: req.params.id },
+      data: {
+        labels: {
+          set: labelIds.map(id => ({ id }))
+        }
+      },
+      include: { labels: true }
+    });
+
+    await logActivity({
+      workspaceId,
+      userId: req.user.id,
+      action: 'TASK_UPDATED',
+      entityType: 'TASK',
+      entityId: task.id,
+      entityName: task.title,
+      metadata: { field: 'labels' }
+    });
+
+    if (req.io) req.io.to(`project:${task.projectId}`).emit('task_updated', task);
+    res.json(task);
+  } catch (err) {
+    console.error('Update task labels error:', err);
+    res.status(500).json({ error: 'Failed to update labels', details: err.message });
   }
 });
 
