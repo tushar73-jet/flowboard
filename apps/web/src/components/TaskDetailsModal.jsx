@@ -4,14 +4,15 @@ import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton,
   VStack, HStack, Text, Box, Input, Textarea, Select, Button,
   Divider, Avatar, Menu, MenuButton, MenuList, MenuItem,
-  useToast
+  useToast, Flex, Badge, Popover, PopoverTrigger, PopoverContent, PopoverBody, PopoverHeader, IconButton, Checkbox, Tooltip, Tag, TagLabel, TagRightIcon, SimpleGrid
 } from "@chakra-ui/react";
 import {
   ChevronDown,
-  Trash2, MessageSquare, CheckCircle2, Plus
+  Trash2, MessageSquare, CheckCircle2, Plus, Calendar, Tag as TagIcon, X, Check
 } from "lucide-react";
-import { Checkbox, IconButton } from "@chakra-ui/react";
 import api from "@/lib/api";
+import { useLabels } from "@/hooks/useLabels";
+import { useDashboard } from "@/app/dashboard/layout";
 
 export default function TaskDetailsModal({
   isOpen, onClose, task, members, onUpdate, onDelete
@@ -21,10 +22,17 @@ export default function TaskDetailsModal({
   const [status, setStatus] = useState(task?.status || "TODO");
   const [priority, setPriority] = useState(task?.priority || "MEDIUM");
   const [assigneeId, setAssigneeId] = useState(task?.assigneeId || "");
+  const [dueDate, setDueDate] = useState(task?.dueDate ? task.dueDate.split("T")[0] : "");
+  const [selectedLabels, setSelectedLabels] = useState(task?.labels || []);
   const [subtasks, setSubtasks] = useState(task?.subtasks || []);
   const [newSubtask, setNewSubtask] = useState("");
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
+
+  const { selectedWorkspaceId } = useDashboard();
+  const { data: workspaceLabels = [], createLabelMutation } = useLabels(selectedWorkspaceId);
+  const [newLabelName, setNewLabelName] = useState("");
+  const [newLabelColor, setNewLabelColor] = useState("#6366f1");
 
   const toast = useToast();
 
@@ -35,27 +43,49 @@ export default function TaskDetailsModal({
       setStatus(task.status);
       setPriority(task.priority);
       setAssigneeId(task.assigneeId || "");
+      setDueDate(task.dueDate ? task.dueDate.split("T")[0] : "");
+      setSelectedLabels(task.labels || []);
       setSubtasks(task.subtasks || []);
       // Fetch comments when task opens
       api.get(`/comments?taskId=${task.id}`).then(({ data }) => setComments(data)).catch(() => {});
     }
   }, [task]);
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     onUpdate({
       ...task,
       title,
       description,
       status,
       priority,
+      dueDate: dueDate || null,
       assigneeId: assigneeId || null
     });
+
+    // Update labels separately if we want to be explicit, but PUT /tasks/:id handles it if we included it? 
+    // Actually our backend PUT /tasks/:id/labels is what we use.
+    await api.put(`/tasks/${task.id}/labels`, { labelIds: selectedLabels.map(l => l.id) });
+
     toast({
       title: "Task updated",
       status: "success",
       duration: 2000,
       isClosable: true,
     });
+  };
+
+  const toggleLabel = (label) => {
+    setSelectedLabels(prev => 
+      prev.find(l => l.id === label.id) 
+        ? prev.filter(l => l.id !== label.id)
+        : [...prev, label]
+    );
+  };
+
+  const handleCreateLabel = async () => {
+    if (!newLabelName.trim()) return;
+    const res = await createLabelMutation.mutateAsync({ name: newLabelName.trim(), color: newLabelColor });
+    setNewLabelName("");
   };
 
   const handleAddSubtask = async (e) => {
@@ -276,13 +306,13 @@ export default function TaskDetailsModal({
 
               <PropertyItem label="Assignee">
                 <Menu>
-                  <MenuButton as={Button} size="sm" variant="outline" w="full" borderColor="whiteAlpha.100" fontSize="xs" textAlign="left" px={2}>
+                  <MenuButton as={Button} size="sm" variant="outline" w="full" borderColor="whiteAlpha.100" fontSize="xs" textAlign="left" px={2} _active={{bg: "whiteAlpha.100"}} _hover={{bg: "whiteAlpha.50"}}>
                     <HStack spacing={2}>
                       <Avatar size="xs" name={selectedAssignee?.name} src={selectedAssignee?.avatarUrl} />
                       <Text noOfLines={1}>{selectedAssignee?.name || "Unassigned"}</Text>
                     </HStack>
                   </MenuButton>
-                  <MenuList bg="#1e293b" borderColor="whiteAlpha.100" maxH="200px" overflowY="auto">
+                  <MenuList bg="#1e293b" borderColor="whiteAlpha.100" maxH="200px" overflowY="auto" zIndex={100}>
                     <MenuItem bg="transparent" _hover={{ bg: "whiteAlpha.100" }} onClick={() => setAssigneeId("")}>Unassigned</MenuItem>
                     {members.map((m) => (
                       <MenuItem
@@ -299,6 +329,89 @@ export default function TaskDetailsModal({
                     ))}
                   </MenuList>
                 </Menu>
+              </PropertyItem>
+
+              <PropertyItem label="Due Date">
+                <HStack bg="whiteAlpha.50" rounded="lg" px={3} py={1.5} border="1px solid" borderColor="whiteAlpha.100">
+                  <Calendar size={14} color="#94a3b8" />
+                  <Input
+                    type="date"
+                    size="xs"
+                    variant="unstyled"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    color="whiteAlpha.800"
+                    sx={{
+                      '&::-webkit-calendar-picker-indicator': {
+                        filter: 'invert(1)',
+                        opacity: 0.5,
+                        cursor: 'pointer'
+                      }
+                    }}
+                  />
+                </HStack>
+              </PropertyItem>
+
+              <PropertyItem label="Labels">
+                <Flex flexWrap="wrap" gap={1} mb={2}>
+                  {selectedLabels.map(l => (
+                    <Tag key={l.id} size="sm" bg={l.color} color="white" rounded="md" variant="subtle">
+                      <TagLabel fontSize="10px" fontWeight="700">{l.name}</TagLabel>
+                      <TagRightIcon as={X} size={10} cursor="pointer" onClick={() => toggleLabel(l)} />
+                    </Tag>
+                  ))}
+                </Flex>
+                
+                <Popover placement="bottom-start">
+                  <PopoverTrigger>
+                    <Button size="xs" variant="outline" leftIcon={<Plus size={12} />} w="full" borderColor="whiteAlpha.100" _hover={{bg:"whiteAlpha.50"}}>
+                      Add Labels
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent bg="#1e293b" borderColor="whiteAlpha.100" p={2} zIndex={100} w="220px">
+                    <PopoverHeader border="none" pb={2} px={1}>
+                      <Text fontSize="xs" fontWeight="700" color="whiteAlpha.600">Labels</Text>
+                    </PopoverHeader>
+                    <PopoverBody px={1}>
+                      <VStack align="stretch" spacing={1} maxH="150px" overflowY="auto" mb={3}>
+                        {workspaceLabels.map(l => (
+                          <HStack 
+                            key={l.id} 
+                            px={2} py={1.5} rounded="md" 
+                            cursor="pointer" 
+                            bg={selectedLabels.find(sl => sl.id === l.id) ? "brand.500" : "transparent"}
+                            _hover={{bg: selectedLabels.find(sl => sl.id === l.id) ? "brand.600" : "whiteAlpha.100"}}
+                            onClick={() => toggleLabel(l)}
+                            justify="space-between"
+                          >
+                            <HStack>
+                              <Box w={3} h={3} rounded="full" bg={l.color} />
+                              <Text fontSize="xs" color="white">{l.name}</Text>
+                            </HStack>
+                            {selectedLabels.find(sl => sl.id === l.id) && <Check size={12} color="white" />}
+                          </HStack>
+                        ))}
+                      </VStack>
+                      
+                      <Divider borderColor="whiteAlpha.100" mb={3} />
+                      
+                      <VStack spacing={2}>
+                        <Input 
+                          placeholder="New label..." size="xs" bg="whiteAlpha.50" 
+                          borderColor="whiteAlpha.100" value={newLabelName} 
+                          onChange={(e) => setNewLabelName(e.target.value)}
+                        />
+                        <HStack w="full">
+                           <Input 
+                            type="color" size="xs" w="40px" p={0} bg="transparent" border="none" 
+                            value={newLabelColor} onChange={(e) => setNewLabelColor(e.target.value)}
+                           />
+                           <Button size="xs" colorScheme="brand" w="full" onClick={handleCreateLabel}>Create</Button>
+                        </HStack>
+                      </VStack>
+                    </PopoverBody>
+                  </PopoverContent>
+                </Popover>
               </PropertyItem>
 
               <Divider borderColor="whiteAlpha.100" />

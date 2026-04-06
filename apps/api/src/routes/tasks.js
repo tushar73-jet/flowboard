@@ -11,7 +11,7 @@ async function resolveWorkspace(projectId) {
 }
 
 router.get('/', async (req, res) => {
-  const { projectId } = req.query;
+  const { projectId, search, priority, status } = req.query;
   if (!projectId) return res.status(400).json({ error: 'projectId is required' });
 
   try {
@@ -21,8 +21,18 @@ router.get('/', async (req, res) => {
     const access = await checkWorkspaceRole(req.user.id, workspaceId, ['OWNER', 'ADMIN', 'MEMBER']);
     if (!access.allowed) return res.status(access.status).json({ error: access.error });
 
+    const where = { projectId };
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+    if (priority) where.priority = priority;
+    if (status) where.status = status;
+
     const tasks = await prisma.task.findMany({ 
-      where: { projectId }, 
+      where, 
       include: { subtasks: true, labels: true } 
     });
     res.json(tasks);

@@ -61,31 +61,52 @@ export default function TaskCard({ task, onOpen, members }) {
         {task.description || "No description provided."}
       </Text>
       
-      <Flex justify="space-between" align="center">
-        <HStack spacing={2}>
-          <Badge colorScheme={priorityColor} fontSize="9px" variant="subtle" rounded="md" px={2} py={0.5}>
-            {task.priority}
-          </Badge>
-          {assignee && (
-            <Tooltip label={assignee.name} hasArrow>
-              <Avatar size="2xs" name={assignee.name} src={assignee.avatarUrl} />
-            </Tooltip>
-          )}
-          {task.subtasks?.length > 0 && (
-            <HStack spacing={1} color={task.subtasks.every(s => s.isCompleted) ? "green.400" : "whiteAlpha.500"}>
-              <CheckSquare size={11} />
-              <Text fontSize="10px" fontWeight="600">
-                {task.subtasks.filter(s => s.isCompleted).length}/{task.subtasks.length}
-              </Text>
-            </HStack>
-          )}
-        </HStack>
-        
-        <Flex align="center" gap={1} color="whiteAlpha.500" fontSize="10px">
-          <Icon as={Clock} boxSize={3} />
-          {new Date(task.updatedAt).toLocaleDateString()}
+        <Flex wrap="wrap" gap={1} mb={3}>
+          {task.labels?.map(label => (
+            <Box 
+              key={label.id} 
+              h="6px" 
+              w="24px" 
+              bg={label.color} 
+              rounded="full" 
+              title={label.name}
+            />
+          ))}
         </Flex>
-      </Flex>
+
+        <Flex justify="space-between" align="center">
+          <HStack spacing={2}>
+            <Badge colorScheme={priorityColor} fontSize="9px" variant="subtle" rounded="md" px={2} py={0.5}>
+              {task.priority}
+            </Badge>
+            {task.dueDate && (
+              <HStack 
+                spacing={1} 
+                color={new Date(task.dueDate) < new Date() ? "red.400" : "whiteAlpha.600"}
+                bg={new Date(task.dueDate) < new Date() ? "red.400/10" : "transparent"}
+                px={1}
+                rounded="md"
+              >
+                <Clock size={11} />
+                <Text fontSize="10px" fontWeight="600">
+                  {new Date(task.dueDate).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                </Text>
+              </HStack>
+            )}
+            {task.subtasks?.length > 0 && (
+              <HStack spacing={1} color={task.subtasks.every(s => s.isCompleted) ? "green.400" : "whiteAlpha.500"}>
+                <CheckSquare size={11} />
+                <Text fontSize="10px" fontWeight="600">
+                  {task.subtasks.filter(s => s.isCompleted).length}/{task.subtasks.length}
+                </Text>
+              </HStack>
+            )}
+          </HStack>
+          
+          <Tooltip label={assignee?.name || "Unassigned"} hasArrow>
+            <Avatar size="2xs" name={assignee?.name} src={assignee?.avatarUrl} />
+          </Tooltip>
+        </Flex>
     </Box>
   );
 }

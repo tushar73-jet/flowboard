@@ -49,7 +49,7 @@ export default function DashboardPage() {
     setLoadingActivity(true);
     try {
       const { data } = await api.get(`/workspaces/${selectedWorkspaceId}/activity`);
-      setActivities(data);
+      setActivities(data.activities || []);
     } catch (e) {
       console.error("Failed to fetch activity", e);
     } finally {

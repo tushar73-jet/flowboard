@@ -4,7 +4,7 @@ import { io } from "socket.io-client";
 import { useAuth } from "@clerk/nextjs";
 import api from "@/lib/api";
 
-export function useTasks(projectId) {
+export function useTasks(projectId, { search, priority, status } = {}) {
   const queryClient = useQueryClient();
   const { getToken } = useAuth();
 
@@ -23,25 +23,15 @@ export function useTasks(projectId) {
       socket.emit("join_project", projectId);
 
       socket.on("task_created", (task) => {
-        queryClient.setQueryData(["tasks", projectId], (old) => {
-          if (!old) return [task];
-          if (old.some(t => t.id === task.id)) return old;
-          return [...old, task];
-        });
+        queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       });
 
       socket.on("task_updated", (updatedTask) => {
-        queryClient.setQueryData(["tasks", projectId], (old) => {
-          if (!old) return [updatedTask];
-          return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
-        });
+        queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       });
 
       socket.on("task_deleted", (taskId) => {
-        queryClient.setQueryData(["tasks", projectId], (old) => {
-          if (!old) return [];
-          return old.filter((t) => t.id !== taskId);
-        });
+        queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       });
     }
 
@@ -56,9 +46,14 @@ export function useTasks(projectId) {
   }, [projectId, queryClient, getToken]);
 
   const query = useQuery({
-    queryKey: ["tasks", projectId],
+    queryKey: ["tasks", projectId, { search, priority, status }],
     queryFn: async () => {
-      const { data } = await api.get(`/tasks?projectId=${projectId}`);
+      const params = new URLSearchParams({ projectId });
+      if (search) params.append("search", search);
+      if (priority) params.append("priority", priority);
+      if (status) params.append("status", status);
+      
+      const { data } = await api.get(`/tasks?${params.toString()}`);
       return data;
     },
     enabled: !!projectId,

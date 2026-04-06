@@ -28,6 +28,34 @@ router.post('/', async (req, res) => {
   }
 });
 
+router.get('/:workspaceId', async (req, res) => {
+  const { workspaceId } = req.params;
+  try {
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      include: {
+        _count: {
+          select: { members: true, projects: true }
+        }
+      }
+    });
+
+    if (!workspace) return res.status(404).json({ error: 'Workspace not found' });
+
+    // Check if user is owner or member
+    if (workspace.ownerId !== req.user.id) {
+      const isMember = await prisma.workspaceMember.findUnique({
+        where: { workspaceId_userId: { workspaceId, userId: req.user.id } }
+      });
+      if (!isMember) return res.status(403).json({ error: 'Access denied' });
+    }
+
+    res.json(workspace);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch workspace' });
+  }
+});
+
 router.get('/', async (req, res) => {
   try {
     const workspaces = await prisma.workspace.findMany({
