@@ -32,6 +32,17 @@ router.post('/', async (req, res) => {
     const project = await prisma.project.create({
       data: { name, description, workspaceId }
     });
+
+    await logActivity({
+      workspaceId,
+      userId: req.user.id,
+      action: 'PROJECT_CREATED',
+      entityType: 'PROJECT',
+      entityId: project.id,
+      entityName: project.name,
+      io: req.io
+    });
+
     res.status(201).json(project);
   } catch (err) {
     console.error('Create project error:', err);
@@ -48,6 +59,17 @@ router.delete('/:id', async (req, res) => {
     if (!access.allowed) return res.status(access.status).json({ error: access.error });
 
     await prisma.project.delete({ where: { id: req.params.id } });
+
+    await logActivity({
+      workspaceId: project.workspaceId,
+      userId: req.user.id,
+      action: 'PROJECT_DELETED',
+      entityType: 'PROJECT',
+      entityId: req.params.id,
+      entityName: project.name,
+      io: req.io
+    });
+
     res.status(204).send();
   } catch (err) {
     console.error('Delete project error:', err);

@@ -1,11 +1,16 @@
 "use client";
 import React, { useState } from "react";
 import { useTasks } from "@/hooks/useTasks";
+import { usePresence } from "@/hooks/usePresence";
 import Board from "@/components/Board";
 import { useParams } from "next/navigation";
-import { Box, Flex, Spinner, Text, Heading, HStack, Badge, Input, Select, InputGroup, InputLeftElement } from "@chakra-ui/react";
+import {
+  Box, Flex, Spinner, Text, Heading, HStack, Badge,
+  Input, Select, InputGroup, InputLeftElement,
+  Avatar, AvatarGroup, Tooltip,
+} from "@chakra-ui/react";
 import { useDashboard } from "@/app/dashboard/layout";
-import { Search, Filter } from "lucide-react";
+import { Search } from "lucide-react";
 
 export default function BoardPage() {
   const params = useParams();
@@ -16,6 +21,7 @@ export default function BoardPage() {
 
   const { data: tasks, isLoading, isError, updateTaskMutation, addTaskMutation } = useTasks(projectId, { search, priority, status });
   const { projects, members, myRole } = useDashboard();
+  const presentUsers = usePresence(projectId, members);
 
   const project = projects?.find(p => p.id === projectId);
   const canAddTasks = myRole === "OWNER" || myRole === "ADMIN";
@@ -38,7 +44,7 @@ export default function BoardPage() {
   }
 
   const handleAddTask = (status, title) => {
-    if (!canAddTasks) return; // Column already hides the button for non-admins
+    if (!canAddTasks) return;
     if (!title?.trim()) return;
     addTaskMutation.mutate({ title: title.trim(), description: "", status, priority: "MEDIUM" });
   };
@@ -65,7 +71,7 @@ export default function BoardPage() {
             {project?.name || "Project Board"}
           </Heading>
 
-          <InputGroup maxW="300px" size="sm">
+          <InputGroup maxW="280px" size="sm">
             <InputLeftElement pointerEvents="none">
               <Search size={14} color="#64748b" />
             </InputLeftElement>
@@ -81,11 +87,11 @@ export default function BoardPage() {
             />
           </InputGroup>
 
-          <HStack spacing={3}>
+          <HStack spacing={2}>
             <Select
               size="sm"
               placeholder="Priority"
-              maxW="120px"
+              maxW="115px"
               rounded="lg"
               bg="#1e293b"
               borderColor="whiteAlpha.100"
@@ -100,7 +106,7 @@ export default function BoardPage() {
             <Select
               size="sm"
               placeholder="Status"
-              maxW="120px"
+              maxW="115px"
               rounded="lg"
               bg="#1e293b"
               borderColor="whiteAlpha.100"
@@ -114,7 +120,27 @@ export default function BoardPage() {
           </HStack>
         </HStack>
 
-        <HStack spacing={3}>
+        <HStack spacing={4}>
+          {/* Member presence avatars */}
+          {presentUsers.length > 0 && (
+            <HStack spacing={2}>
+              <Box w={1.5} h={1.5} rounded="full" bg="green.400" boxShadow="0 0 6px rgba(74,222,128,0.8)" />
+              <AvatarGroup size="xs" max={4} spacing="-6px">
+                {presentUsers.map(m => (
+                  <Tooltip key={m.userId} label={`${m.user?.name || m.user?.email} is viewing`} hasArrow>
+                    <Avatar
+                      name={m.user?.name}
+                      src={m.user?.avatarUrl}
+                      border="2px solid"
+                      borderColor="green.400"
+                    />
+                  </Tooltip>
+                ))}
+              </AvatarGroup>
+              <Text fontSize="xs" color="whiteAlpha.500">{presentUsers.length} online</Text>
+            </HStack>
+          )}
+
           <Badge colorScheme="brand" variant="subtle" fontSize="0.65rem" px={2} py={1} rounded="md">
             {(tasks || []).length} tasks
           </Badge>
@@ -132,7 +158,7 @@ export default function BoardPage() {
         onTaskUpdate={(updatedTask) => updateTaskMutation.mutate(updatedTask)}
         onAddTask={handleAddTask}
         onColumnReorder={(newColumns) => {
-          console.log("Saving new column order:", newColumns);
+          console.log("New column order:", newColumns);
         }}
       />
     </Box>

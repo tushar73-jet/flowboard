@@ -16,7 +16,13 @@ import {
 } from "@dnd-kit/sortable";
 import Column from "./Column";
 import TaskDetailsModal from "./TaskDetailsModal";
-import { Flex, useDisclosure, useToast, AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter, Button } from "@chakra-ui/react";
+import {
+  Flex, useDisclosure, useToast,
+  AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter,
+  Button, Icon, Box, VStack, Heading, Text, HStack,
+  Menu, MenuButton, MenuList, MenuItem,
+} from "@chakra-ui/react";
+import { Box as BoxIcon, Plus, CheckSquare, ChevronDown, X, Trash2 } from "lucide-react";
 import api from "@/lib/api";
 
 const DEFAULT_COLUMNS = [
@@ -33,6 +39,52 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const cancelRef = useRef();
+
+  // Bulk selection state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const bulkCancelRef = useRef();
+
+  const toggleSelectTask = (taskId) => {
+    setSelectedTaskIds(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) next.delete(taskId);
+      else next.add(taskId);
+      return next;
+    });
+  };
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedTaskIds(new Set());
+  };
+
+  const selectAll = () => {
+    setSelectedTaskIds(new Set(tasks.map(t => t.id)));
+  };
+
+  const handleBulkMove = async (status) => {
+    const tasksToMove = tasks.filter(t => selectedTaskIds.has(t.id) && t.status !== status);
+    await Promise.all(tasksToMove.map(t => onTaskUpdate({ ...t, status })));
+    toast({ title: `Moved ${selectedTaskIds.size} task${selectedTaskIds.size > 1 ? "s" : ""} to ${status.replace("_", " ")}`, status: "success", duration: 2500 });
+    exitSelectionMode();
+  };
+
+  const handleBulkDelete = async () => {
+    setIsBulkDeleting(true);
+    try {
+      await Promise.all([...selectedTaskIds].map(id => api.delete(`/tasks/${id}`)));
+      toast({ title: `Deleted ${selectedTaskIds.size} task${selectedTaskIds.size > 1 ? "s" : ""}`, status: "info", duration: 2500 });
+      exitSelectionMode();
+      setBulkDeleteConfirm(false);
+    } catch (e) {
+      toast({ title: "Failed to delete tasks", description: e.message, status: "error", duration: 4000 });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -51,7 +103,6 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
       await api.delete(`/tasks/${taskToDelete}`);
       onClose();
       setTaskToDelete(null);
-      // On real-time projects, the deletion will be synced via Socket.IO
     } catch (e) {
       toast({ title: "Failed to delete task", description: e.message, status: "error", duration: 4000 });
     } finally {
@@ -75,7 +126,6 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
       } else if (active.data.current?.type === "Task") {
         const activeTask = active.data.current.task;
         const overId = over.id;
-
         const overData = over.data.current;
         let newStatus = activeTask.status;
 
@@ -94,6 +144,47 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
 
   return (
     <>
+      {/* Selection mode toolbar */}
+      <Flex
+        px={8} py={2.5}
+        align="center"
+        justify="space-between"
+        borderBottom="1px solid"
+        borderColor="whiteAlpha.50"
+        bg="rgba(11,17,32,0.6)"
+        minH="44px"
+      >
+        <HStack spacing={3}>
+          <Button
+            size="xs"
+            variant={selectionMode ? "solid" : "ghost"}
+            colorScheme={selectionMode ? "brand" : "whiteAlpha"}
+            color={selectionMode ? "white" : "whiteAlpha.500"}
+            leftIcon={<CheckSquare size={12} />}
+            onClick={() => { setSelectionMode(s => !s); setSelectedTaskIds(new Set()); }}
+            _hover={{ bg: selectionMode ? "brand.600" : "whiteAlpha.100", color: "white" }}
+          >
+            {selectionMode ? "Exit Select" : "Select Tasks"}
+          </Button>
+          {selectionMode && (
+            <HStack spacing={2}>
+              <Text fontSize="xs" color="brand.300" fontWeight="600">
+                {selectedTaskIds.size} selected
+              </Text>
+              <Button size="xs" variant="ghost" color="whiteAlpha.400" onClick={selectAll} _hover={{ color: "white" }}>
+                Select all
+              </Button>
+            </HStack>
+          )}
+        </HStack>
+
+        {selectionMode && tasks.length > 0 && (
+          <Text fontSize="10px" color="whiteAlpha.300">
+            Click tasks to select · drag disabled
+          </Text>
+        )}
+      </Flex>
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -103,28 +194,116 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
           gap={6}
           p={8}
           overflowX="auto"
-          minH="calc(100vh - 80px)"
+          minH="calc(100vh - 130px)"
           alignItems="flex-start"
           sx={{
-            '&::-webkit-scrollbar': { height: '8px' },
-            '&::-webkit-scrollbar-track': { background: 'transparent' },
-            '&::-webkit-scrollbar-thumb': { background: 'whiteAlpha.300', borderRadius: '4px' },
+            "&::-webkit-scrollbar": { height: "8px" },
+            "&::-webkit-scrollbar-track": { background: "transparent" },
+            "&::-webkit-scrollbar-thumb": { background: "whiteAlpha.300", borderRadius: "4px" },
           }}
         >
-          <SortableContext
-            items={columns.map((c) => c.id)}
-            strategy={horizontalListSortingStrategy}
-          >
-            {columns.map((col) => (
-              <Column
-                key={col.id}
-                column={{ ...col, onAddTask, onTaskOpen: handleOpenTask, members }}
-                tasks={tasks.filter((t) => t.status === col.id)}
-              />
-            ))}
-          </SortableContext>
+          {tasks.length === 0 ? (
+            <Flex direction="column" align="center" justify="center" w="full" py={20} gap={4}>
+              <Box p={6} bg="whiteAlpha.50" rounded="full" border="1px dashed" borderColor="whiteAlpha.200">
+                <Icon as={BoxIcon} boxSize={8} color="whiteAlpha.400" />
+              </Box>
+              <VStack spacing={1}>
+                <Heading size="md" color="whiteAlpha.900">No tasks found</Heading>
+                <Text color="whiteAlpha.500" fontSize="sm">Try adjusting your filters or create a new task.</Text>
+              </VStack>
+              <Button leftIcon={<Plus size={18} />} colorScheme="brand" onClick={() => onAddTask("TODO", "New Task")} mt={2}>
+                Create New Task
+              </Button>
+            </Flex>
+          ) : (
+            <SortableContext
+              items={columns.map((c) => c.id)}
+              strategy={horizontalListSortingStrategy}
+            >
+              {columns.map((col) => (
+                <Column
+                  key={col.id}
+                  column={{ ...col, onAddTask, onTaskOpen: handleOpenTask, members }}
+                  tasks={tasks.filter((t) => t.status === col.id)}
+                  selectionMode={selectionMode}
+                  selectedTaskIds={selectedTaskIds}
+                  onToggleSelect={toggleSelectTask}
+                />
+              ))}
+            </SortableContext>
+          )}
         </Flex>
       </DndContext>
+
+      {/* Bulk action floating bar */}
+      {selectionMode && selectedTaskIds.size > 0 && (
+        <Box
+          position="fixed"
+          bottom={6}
+          left="50%"
+          transform="translateX(-50%)"
+          bg="#1a2235"
+          border="1px solid"
+          borderColor="brand.500"
+          boxShadow="0 8px 32px rgba(99,102,241,0.35)"
+          rounded="2xl"
+          px={5}
+          py={3}
+          zIndex={200}
+        >
+          <HStack spacing={4}>
+            <Text fontSize="sm" color="whiteAlpha.700" fontWeight="600" whiteSpace="nowrap">
+              {selectedTaskIds.size} task{selectedTaskIds.size > 1 ? "s" : ""} selected
+            </Text>
+            <HStack spacing={2}>
+              <Menu>
+                <MenuButton
+                  as={Button}
+                  size="sm"
+                  variant="outline"
+                  borderColor="whiteAlpha.200"
+                  color="white"
+                  _hover={{ bg: "whiteAlpha.100" }}
+                  rightIcon={<ChevronDown size={13} />}
+                >
+                  Move to…
+                </MenuButton>
+                <MenuList bg="#1e293b" borderColor="whiteAlpha.100" zIndex={300}>
+                  <MenuItem bg="transparent" _hover={{ bg: "whiteAlpha.100" }} onClick={() => handleBulkMove("TODO")}>
+                    Todo
+                  </MenuItem>
+                  <MenuItem bg="transparent" _hover={{ bg: "whiteAlpha.100" }} onClick={() => handleBulkMove("IN_PROGRESS")}>
+                    In Progress
+                  </MenuItem>
+                  <MenuItem bg="transparent" _hover={{ bg: "whiteAlpha.100" }} onClick={() => handleBulkMove("DONE")}>
+                    Done
+                  </MenuItem>
+                </MenuList>
+              </Menu>
+              <Button
+                size="sm"
+                colorScheme="red"
+                variant="ghost"
+                leftIcon={<Trash2 size={14} />}
+                onClick={() => setBulkDeleteConfirm(true)}
+                _hover={{ bg: "red.500/20" }}
+              >
+                Delete
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                color="whiteAlpha.500"
+                leftIcon={<X size={14} />}
+                onClick={exitSelectionMode}
+                _hover={{ bg: "whiteAlpha.100", color: "white" }}
+              >
+                Cancel
+              </Button>
+            </HStack>
+          </HStack>
+        </Box>
+      )}
 
       {selectedTask && (
         <TaskDetailsModal
@@ -137,7 +316,7 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
         />
       )}
 
-      {/* Delete Task Dialog */}
+      {/* Single task delete dialog */}
       <AlertDialog isOpen={!!taskToDelete} leastDestructiveRef={cancelRef} onClose={() => setTaskToDelete(null)} isCentered blockScrollOnMount={false}>
         <AlertDialogOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
         <AlertDialogContent bg="#1e293b" color="white" rounded="xl" mx={4}>
@@ -148,6 +327,23 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
           <AlertDialogFooter>
             <Button ref={cancelRef} onClick={() => setTaskToDelete(null)} variant="ghost" _hover={{ bg: "whiteAlpha.100" }}>Cancel</Button>
             <Button colorScheme="red" onClick={handleDeleteTask} isLoading={isDeleting} ml={3}>Delete</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk delete confirmation dialog */}
+      <AlertDialog isOpen={bulkDeleteConfirm} leastDestructiveRef={bulkCancelRef} onClose={() => setBulkDeleteConfirm(false)} isCentered blockScrollOnMount={false}>
+        <AlertDialogOverlay backdropFilter="blur(4px)" bg="blackAlpha.300" />
+        <AlertDialogContent bg="#1e293b" color="white" rounded="xl" mx={4}>
+          <AlertDialogHeader fontSize="lg" fontWeight="bold">Delete {selectedTaskIds.size} Tasks</AlertDialogHeader>
+          <AlertDialogBody>
+            Are you sure? This will permanently delete {selectedTaskIds.size} task{selectedTaskIds.size > 1 ? "s" : ""} and all their subtasks and comments.
+          </AlertDialogBody>
+          <AlertDialogFooter>
+            <Button ref={bulkCancelRef} onClick={() => setBulkDeleteConfirm(false)} variant="ghost" _hover={{ bg: "whiteAlpha.100" }}>Cancel</Button>
+            <Button colorScheme="red" onClick={handleBulkDelete} isLoading={isBulkDeleting} ml={3}>
+              Delete All
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

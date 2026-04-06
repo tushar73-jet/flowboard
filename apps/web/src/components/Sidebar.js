@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Box, Flex, Text, VStack, HStack, Select, Spinner,
-  IconButton, Tooltip, Badge, Divider, Button,
+  IconButton, Tooltip, Badge, Divider, Button, Textarea,
   useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton, Input, useToast,
   AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter
 } from "@chakra-ui/react";
@@ -36,11 +36,27 @@ export default function Sidebar() {
 
   const [newWsName, setNewWsName] = useState("");
   const [newProjName, setNewProjName] = useState("");
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [descValue, setDescValue] = useState("");
   const toast = useToast();
 
   const canCreate = myRole === "OWNER" || myRole === "ADMIN";
   const canDelete = myRole === "OWNER";
+  const canEdit = myRole === "OWNER" || myRole === "ADMIN";
   const roleMeta = myRole ? ROLE_META[myRole] : null;
+  const selectedWs = workspaces.find(w => w.id === selectedWorkspaceId);
+
+  const handleSaveDesc = async () => {
+    setEditingDesc(false);
+    if (descValue === (selectedWs?.description || "")) return;
+    try {
+      await api.patch(`/workspaces/${selectedWorkspaceId}`, { description: descValue });
+      await refreshWorkspaces();
+      toast({ title: "Description updated", status: "success", duration: 2000 });
+    } catch (e) {
+      toast({ title: "Failed to update description", status: "error", duration: 3000 });
+    }
+  };
 
   const handleCreateWorkspace = async () => {
     if (!newWsName.trim()) return;
@@ -184,6 +200,45 @@ export default function Sidebar() {
             )}
           </HStack>
         )}
+
+        {/* Workspace description */}
+        <Box mt={2}>
+          {editingDesc ? (
+            <Textarea
+              value={descValue}
+              onChange={(e) => setDescValue(e.target.value)}
+              onBlur={handleSaveDesc}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveDesc(); } if (e.key === "Escape") setEditingDesc(false); }}
+              autoFocus
+              size="xs"
+              rows={2}
+              bg="whiteAlpha.50"
+              border="1px solid"
+              borderColor="brand.500"
+              rounded="md"
+              fontSize="xs"
+              color="whiteAlpha.800"
+              resize="none"
+              placeholder="Add workspace description..."
+              _focus={{ boxShadow: "none" }}
+            />
+          ) : (
+            <Text
+              fontSize="xs"
+              color={selectedWs?.description ? "whiteAlpha.500" : "whiteAlpha.300"}
+              px={1}
+              py={0.5}
+              rounded="md"
+              cursor={canEdit ? "pointer" : "default"}
+              noOfLines={2}
+              _hover={canEdit ? { bg: "whiteAlpha.50", color: "whiteAlpha.700" } : {}}
+              onClick={() => { if (!canEdit) return; setDescValue(selectedWs?.description || ""); setEditingDesc(true); }}
+              transition="all 0.15s"
+            >
+              {selectedWs?.description || (canEdit ? "Add description..." : "")}
+            </Text>
+          )}
+        </Box>
       </Box>
 
       <Divider borderColor="whiteAlpha.50" />

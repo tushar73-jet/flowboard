@@ -7,7 +7,8 @@ async function logActivity({
   entityType, 
   entityId, 
   entityName = null, 
-  metadata = null 
+  metadata = null,
+  io = null
 }) {
   try {
     const log = await prisma.activityLog.create({
@@ -19,8 +20,15 @@ async function logActivity({
         entityId,
         entityName,
         metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : null
+      },
+      include: {
+        user: { select: { name: true, email: true } }
       }
     });
+
+    if (io) {
+      io.to(`workspace:${workspaceId}`).emit('workspace_activity', log);
+    }
 
     return log;
   } catch (err) {

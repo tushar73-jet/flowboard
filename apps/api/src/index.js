@@ -41,6 +41,16 @@ io.on('connection', (socket) => {
     console.log(`[Socket.IO] ${socket.id} left room: project:${projectId}`);
   });
 
+  socket.on('join_workspace', (workspaceId) => {
+    socket.join(`workspace:${workspaceId}`);
+    console.log(`[Socket.IO] ${socket.id} joined room: workspace:${workspaceId}`);
+  });
+
+  socket.on('leave_workspace', (workspaceId) => {
+    socket.leave(`workspace:${workspaceId}`);
+    console.log(`[Socket.IO] ${socket.id} left room: workspace:${workspaceId}`);
+  });
+
   socket.on('user_presence', ({ projectId, userId }) => {
     socket.to(`project:${projectId}`).emit('user_presence', { userId, socketId: socket.id });
   });

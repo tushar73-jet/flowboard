@@ -108,7 +108,8 @@ router.post('/:workspaceId/members', requireRole(['OWNER', 'ADMIN']), async (req
       entityType: 'USER',
       entityId: user.id,
       entityName: user.name || user.email,
-      metadata: { role }
+      metadata: { role },
+      io: req.io
     });
 
     res.json({ ...member, user: { name: user.name, email: user.email } });
@@ -141,7 +142,8 @@ router.delete('/:workspaceId/members/:userId', requireRole(['OWNER', 'ADMIN']), 
       action: 'MEMBER_REMOVED',
       entityType: 'USER',
       entityId: userId,
-      entityName: existingMember?.name || existingMember?.email
+      entityName: existingMember?.name || existingMember?.email,
+      io: req.io
     });
 
     res.status(204).send();
@@ -171,6 +173,24 @@ router.get('/:workspaceId/activity', requireRole(['OWNER', 'ADMIN', 'MEMBER']), 
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch activity feed' });
+  }
+});
+
+router.patch('/:workspaceId', requireRole(['OWNER', 'ADMIN']), async (req, res) => {
+  const { workspaceId } = req.params;
+  const { name, description } = req.body;
+  if (!name && description === undefined) return res.status(400).json({ error: 'Nothing to update' });
+  try {
+    const workspace = await prisma.workspace.update({
+      where: { id: workspaceId },
+      data: {
+        ...(name && { name }),
+        ...(description !== undefined && { description })
+      }
+    });
+    res.json(workspace);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update workspace' });
   }
 });
 

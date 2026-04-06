@@ -12,6 +12,8 @@ import { IconButton } from "@chakra-ui/react";
 import { useDashboard } from "@/app/dashboard/layout";
 import ActivityFeed from "@/components/ActivityFeed";
 import api from "@/lib/api";
+import { io } from "socket.io-client";
+import { useAuth } from "@clerk/nextjs";
 
 const ROLE_META = {
   OWNER:  { label: "Owner",  color: "purple" },
@@ -25,6 +27,7 @@ export default function DashboardPage() {
     projects, myRole, loadingProjects,
     refreshProjects,
   } = useDashboard();
+  const { getToken } = useAuth();
 
   const [activities, setActivities] = useState([]);
   const [loadingActivity, setLoadingActivity] = useState(true);
@@ -59,6 +62,53 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchActivity();
+
+    if (!selectedWorkspaceId) return;
+
+    let socket;
+    async function setupSocket() {
+      const token = await getToken();
+      socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000", {
+        auth: { token }
+      });
+
+      socket.emit("join_workspace", selectedWorkspaceId);
+
+      socket.on("workspace_activity", (newActivity) => {
+        setActivities(prev => [newActivity, ...prev].slice(0, 50));
+
+        const actor = newActivity.user?.name || "Someone";
+        const entity = newActivity.entityName ? `"${newActivity.entityName}"` : "";
+        const toastMessages = {
+          TASK_CREATED: `${actor} created task ${entity}`,
+          TASK_MOVED: `${actor} moved ${entity} → ${newActivity.metadata?.to || ""}`,
+          TASK_DELETED: `${actor} deleted task ${entity}`,
+          MEMBER_ADDED: `${actor} added ${newActivity.entityName} to the workspace`,
+          MEMBER_REMOVED: `${actor} removed ${newActivity.entityName}`,
+          PROJECT_CREATED: `${actor} created project ${entity}`,
+        };
+        const message = toastMessages[newActivity.action];
+        if (message) {
+          toast({
+            title: message,
+            status: "info",
+            duration: 3500,
+            isClosable: true,
+            position: "bottom-right",
+            variant: "left-accent",
+          });
+        }
+      });
+    }
+
+    setupSocket();
+
+    return () => {
+      if (socket) {
+        socket.emit("leave_workspace", selectedWorkspaceId);
+        socket.disconnect();
+      }
+    };
   }, [selectedWorkspaceId]);
 
   const handleCreateProject = async () => {

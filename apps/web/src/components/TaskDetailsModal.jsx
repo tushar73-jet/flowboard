@@ -52,26 +52,33 @@ export default function TaskDetailsModal({
   }, [task]);
 
   const handleUpdate = async () => {
-    onUpdate({
-      ...task,
-      title,
-      description,
-      status,
-      priority,
-      dueDate: dueDate || null,
-      assigneeId: assigneeId || null
-    });
+    try {
+      onUpdate({
+        ...task,
+        title,
+        description,
+        status,
+        priority,
+        dueDate: dueDate || null,
+        assigneeId: assigneeId || null
+      });
 
-    // Update labels separately if we want to be explicit, but PUT /tasks/:id handles it if we included it? 
-    // Actually our backend PUT /tasks/:id/labels is what we use.
-    await api.put(`/tasks/${task.id}/labels`, { labelIds: selectedLabels.map(l => l.id) });
+      await api.put(`/tasks/${task.id}/labels`, { labelIds: selectedLabels.map(l => l.id) });
 
-    toast({
-      title: "Task updated",
-      status: "success",
-      duration: 2000,
-      isClosable: true,
-    });
+      toast({
+        title: "Task updated",
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (err) {
+      toast({
+        title: "Failed to save changes",
+        description: err?.response?.data?.error || err.message,
+        status: "error",
+        duration: 3000,
+      });
+    }
   };
 
   const toggleLabel = (label) => {
@@ -126,7 +133,7 @@ export default function TaskDetailsModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="xl">
+    <Modal isOpen={isOpen} onClose={onClose} size="xl" key={task?.id}>
       <ModalOverlay backdropFilter="blur(5px)" bg="blackAlpha.700" />
       <ModalContent bg="#0f172a" border="1px solid" borderColor="whiteAlpha.100" rounded="2xl" color="white">
         <ModalHeader borderBottom="1px solid" borderColor="whiteAlpha.50" pt={6}>
@@ -418,7 +425,9 @@ export default function TaskDetailsModal({
 
               <Box>
                 <Text fontSize="10px" color="whiteAlpha.400" mb={1} textTransform="uppercase" letterSpacing="0.05em">Created At</Text>
-                <Text fontSize="xs" color="whiteAlpha.700">{new Date(task?.createdAt).toLocaleString()}</Text>
+                <Text fontSize="xs" color="whiteAlpha.700">
+                  {task?.createdAt ? new Date(task.createdAt).toLocaleString() : "—"}
+                </Text>
               </Box>
             </VStack>
           </Flex>

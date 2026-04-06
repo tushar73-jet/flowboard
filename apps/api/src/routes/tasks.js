@@ -72,7 +72,8 @@ router.post('/', async (req, res) => {
       action: 'TASK_CREATED',
       entityType: 'TASK',
       entityId: task.id,
-      entityName: task.title
+      entityName: task.title,
+      io: req.io
     });
     if (req.io) req.io.to(`project:${projectId}`).emit('task_created', task);
 
@@ -118,7 +119,8 @@ router.put('/:id', async (req, res) => {
         entityType: 'TASK',
         entityId: task.id,
         entityName: task.title,
-        metadata: { from: existing.status, to: status }
+        metadata: { from: existing.status, to: status },
+        io: req.io
       });
     }
 
@@ -150,7 +152,8 @@ router.delete('/:id', async (req, res) => {
       action: 'TASK_DELETED',
       entityType: 'TASK',
       entityId: task.id,
-      entityName: task.title
+      entityName: task.title,
+      io: req.io
     });
 
     if (req.io) req.io.to(`project:${task.projectId}`).emit('task_deleted', task.id);
@@ -193,7 +196,8 @@ router.put('/:id/labels', async (req, res) => {
       entityType: 'TASK',
       entityId: task.id,
       entityName: task.title,
-      metadata: { field: 'labels' }
+      metadata: { field: 'labels' },
+      io: req.io
     });
 
     if (req.io) req.io.to(`project:${task.projectId}`).emit('task_updated', task);

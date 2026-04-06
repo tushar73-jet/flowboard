@@ -1,11 +1,11 @@
 "use client";
-import { 
-  Box, VStack, HStack, Text, Flex, Spinner, 
-  Divider 
+import {
+  Box, VStack, HStack, Text, Flex, Spinner,
+  Divider
 } from "@chakra-ui/react";
-import { 
-  PlusCircle, ArrowRightLeft, UserPlus, UserMinus, 
-  Trash2, FolderPlus, CheckCircle 
+import {
+  PlusCircle, ArrowRightLeft, UserPlus, UserMinus,
+  Trash2, FolderPlus, CheckCircle
 } from "lucide-react";
 import { useDashboard } from "@/app/dashboard/layout";
 
@@ -74,14 +74,14 @@ function ActivityItem({ activity }) {
 
   return (
     <Flex py={3} px={4} gap={4} align="flex-start" _hover={{ bg: "whiteAlpha.50" }} transition="bg 0.2s">
-      <Flex 
+      <Flex
         w={7} h={7} rounded="full" mt={0.5}
         bg="whiteAlpha.100" border="1px solid" borderColor="whiteAlpha.100"
         align="center" justify="center" color={config.color}
       >
         {config.icon}
       </Flex>
-      
+
       <Box flex="1">
         <HStack justify="space-between" mb={0.5}>
           <Text fontSize="xs" fontWeight="700" color="whiteAlpha.900">
@@ -91,7 +91,7 @@ function ActivityItem({ activity }) {
             {new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
         </HStack>
-        
+
         <Text fontSize="xs" color="whiteAlpha.600" lineHeight="1.4">
           {getActionText()}
         </Text>
