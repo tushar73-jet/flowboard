@@ -1,10 +1,12 @@
 "use client";
 import React, { useState, useEffect } from "react";
+import DOMPurify from 'dompurify';
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton,
   VStack, HStack, Text, Box, Input, Textarea, Select, Button,
   Divider, Avatar, Menu, MenuButton, MenuList, MenuItem,
-  useToast, Flex, Badge, Popover, PopoverTrigger, PopoverContent, PopoverBody, PopoverHeader, IconButton, Checkbox, Tooltip, Tag, TagLabel, TagRightIcon, SimpleGrid
+  useToast, Flex, Badge, Popover, PopoverTrigger, PopoverContent, PopoverBody, PopoverHeader, IconButton, Checkbox, Tooltip, Tag, TagLabel, TagRightIcon, SimpleGrid,
+  Tabs, TabList, Tab, TabPanels, TabPanel
 } from "@chakra-ui/react";
 import {
   ChevronDown,
@@ -155,126 +157,147 @@ export default function TaskDetailsModal({
         <ModalBody p={6}>
           <Flex direction={{ base: "column", md: "row" }} gap={8}>
             {/* Main Content */}
-            <VStack flex="1" align="stretch" spacing={6}>
-              <Box>
-                <HStack mb={2} spacing={2} color="whiteAlpha.500">
-                  <MessageSquare size={14} />
-                  <Text fontSize="xs" fontWeight="700" textTransform="uppercase">Description</Text>
-                </HStack>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Review the project goals and define the next steps..."
-                  bg="whiteAlpha.50"
-                  border="1px solid"
-                  borderColor="whiteAlpha.100"
-                  _focus={{ borderColor: "brand.500", bg: "whiteAlpha.100" }}
-                  rounded="xl"
-                  minH="150px"
-                  fontSize="sm"
-                  pt={3}
-                />
-              </Box>
+            <VStack flex="1" align="stretch" spacing={0}>
+              <Tabs colorScheme="brand" variant="soft-rounded">
+                <TabList px={0} pt={0} mb={4}>
+                  <Tab fontSize="sm">Details</Tab>
+                  <Tab fontSize="sm">
+                    Comments
+                    {comments.length > 0 && (
+                      <Badge ml={2} colorScheme="brand">{comments.length}</Badge>
+                    )}
+                  </Tab>
+                </TabList>
 
-              {/* Subtasks */}
-              <Box>
-                <HStack mb={2} spacing={2} color="whiteAlpha.500" justify="space-between">
-                  <HStack spacing={2}>
-                    <CheckCircle2 size={14} />
-                    <Text fontSize="xs" fontWeight="700" textTransform="uppercase">Subtasks</Text>
-                  </HStack>
-                  <Text fontSize="xs" color="whiteAlpha.400">
-                    {subtasks.filter(s => s.isCompleted).length}/{subtasks.length}
-                  </Text>
-                </HStack>
-
-                <VStack align="stretch" spacing={1} mb={2}>
-                  {subtasks.map((st) => (
-                    <HStack key={st.id} px={2} py={1} rounded="lg" _hover={{ bg: "whiteAlpha.50" }}>
-                      <Checkbox
-                        isChecked={st.isCompleted}
-                        onChange={() => handleToggle(st)}
-                        colorScheme="brand"
-                        size="sm"
-                      />
-                      <Text
-                        flex="1"
-                        fontSize="sm"
-                        color={st.isCompleted ? "whiteAlpha.400" : "white"}
-                        textDecoration={st.isCompleted ? "line-through" : "none"}
-                      >
-                        {st.title}
-                      </Text>
-                      <IconButton
-                        icon={<Trash2 size={12} />}
-                        size="xs"
-                        variant="ghost"
-                        colorScheme="red"
-                        aria-label="delete"
-                        onClick={() => handleDeleteSubtask(st.id)}
-                      />
-                    </HStack>
-                  ))}
-                </VStack>
-
-                <HStack bg="whiteAlpha.50" px={3} py={1} rounded="lg">
-                  <Plus size={13} color="#64748b" />
-                  <Input
-                    variant="unstyled"
-                    fontSize="sm"
-                    placeholder="Add subtask, press Enter"
-                    value={newSubtask}
-                    onChange={(e) => setNewSubtask(e.target.value)}
-                    onKeyDown={handleAddSubtask}
-                  />
-                </HStack>
-              </Box>
-
-              {/* Comments */}
-              <Box>
-                <HStack mb={2} spacing={2} color="whiteAlpha.500">
-                  <MessageSquare size={14} />
-                  <Text fontSize="xs" fontWeight="700" textTransform="uppercase">Comments</Text>
-                </HStack>
-
-                <VStack align="stretch" spacing={2} mb={2} maxH="160px" overflowY="auto">
-                  {comments.map((c) => (
-                    <HStack key={c.id} align="flex-start" spacing={2} px={2} py={1} rounded="lg" _hover={{ bg: "whiteAlpha.50" }}>
-                      <Avatar size="xs" name={c.user?.name} mt="2px" />
-                      <Box flex="1">
-                        <HStack spacing={2} mb={0.5}>
-                          <Text fontSize="xs" fontWeight="600" color="whiteAlpha.800">{c.user?.name}</Text>
-                          <Text fontSize="10px" color="whiteAlpha.400">{new Date(c.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
+                <TabPanels>
+                  <TabPanel p={0}>
+                    <VStack align="stretch" spacing={6}>
+                      <Box>
+                        <HStack mb={2} spacing={2} color="whiteAlpha.500">
+                          <MessageSquare size={14} />
+                          <Text fontSize="xs" fontWeight="700" textTransform="uppercase">Description</Text>
                         </HStack>
-                        <Text fontSize="sm" color="whiteAlpha.700">{c.content}</Text>
+                        <Textarea
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder="Review the project goals and define the next steps..."
+                          bg="whiteAlpha.50"
+                          border="1px solid"
+                          borderColor="whiteAlpha.100"
+                          _focus={{ borderColor: "brand.500", bg: "whiteAlpha.100" }}
+                          rounded="xl"
+                          minH="150px"
+                          fontSize="sm"
+                          pt={3}
+                        />
                       </Box>
-                      <IconButton icon={<Trash2 size={12} />} size="xs" variant="ghost" colorScheme="red" aria-label="delete" onClick={() => handleDeleteComment(c.id)} />
-                    </HStack>
-                  ))}
-                  {comments.length === 0 && <Text fontSize="xs" color="whiteAlpha.400" px={2}>No comments yet</Text>}
-                </VStack>
 
-                <HStack bg="whiteAlpha.50" px={3} py={1} rounded="lg">
-                  <MessageSquare size={13} color="#64748b" />
-                  <Input
-                    variant="unstyled"
-                    fontSize="sm"
-                    placeholder="Add comment, press Enter"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    onKeyDown={handleAddComment}
-                  />
+                      {/* Subtasks */}
+                      <Box>
+                        <HStack mb={2} spacing={2} color="whiteAlpha.500" justify="space-between">
+                          <HStack spacing={2}>
+                            <CheckCircle2 size={14} />
+                            <Text fontSize="xs" fontWeight="700" textTransform="uppercase">Subtasks</Text>
+                          </HStack>
+                          <Text fontSize="xs" color="whiteAlpha.400">
+                            {subtasks.filter(s => s.isCompleted).length}/{subtasks.length}
+                          </Text>
+                        </HStack>
+
+                        <VStack align="stretch" spacing={1} mb={2}>
+                          {subtasks.map((st) => (
+                            <HStack key={st.id} px={2} py={1} rounded="lg" _hover={{ bg: "whiteAlpha.50" }}>
+                              <Checkbox
+                                isChecked={st.isCompleted}
+                                onChange={() => handleToggle(st)}
+                                colorScheme="brand"
+                                size="sm"
+                              />
+                              <Text
+                                flex="1"
+                                fontSize="sm"
+                                color={st.isCompleted ? "whiteAlpha.400" : "white"}
+                                textDecoration={st.isCompleted ? "line-through" : "none"}
+                              >
+                                {st.title}
+                              </Text>
+                              <IconButton
+                                icon={<Trash2 size={12} />}
+                                size="xs"
+                                variant="ghost"
+                                colorScheme="red"
+                                aria-label="delete"
+                                onClick={() => handleDeleteSubtask(st.id)}
+                              />
+                            </HStack>
+                          ))}
+                        </VStack>
+
+                        <HStack bg="whiteAlpha.50" px={3} py={1} rounded="lg">
+                          <Plus size={13} color="#64748b" />
+                          <Input
+                            variant="unstyled"
+                            fontSize="sm"
+                            placeholder="Add subtask, press Enter"
+                            value={newSubtask}
+                            onChange={(e) => setNewSubtask(e.target.value)}
+                            onKeyDown={handleAddSubtask}
+                          />
+                        </HStack>
+                      </Box>
+                    </VStack>
+                  </TabPanel>
+
+                  <TabPanel p={0}>
+                    {/* Comments */}
+                    <Box>
+                      <VStack align="stretch" spacing={2} mb={4} maxH="300px" overflowY="auto">
+                        {comments.map((c) => (
+                          <HStack key={c.id} align="flex-start" spacing={2} px={2} py={2} rounded="lg" _hover={{ bg: "whiteAlpha.50" }}>
+                            <Avatar size="xs" name={c.user?.name} mt="2px" />
+                            <Box flex="1">
+                              <HStack spacing={2} mb={0.5}>
+                                <Text fontSize="xs" fontWeight="600" color="whiteAlpha.800">{c.user?.name}</Text>
+                                <Text fontSize="10px" color="whiteAlpha.400">{new Date(c.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
+                              </HStack>
+                              <Text 
+                                fontSize="sm" 
+                                color="whiteAlpha.700"
+                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(c.content) }}
+                              />
+                            </Box>
+                            <IconButton icon={<Trash2 size={12} />} size="xs" variant="ghost" colorScheme="red" aria-label="delete" onClick={() => handleDeleteComment(c.id)} />
+                          </HStack>
+                        ))}
+                        {comments.length === 0 && <Text fontSize="xs" color="whiteAlpha.400" px={2} py={4}>No comments yet</Text>}
+                      </VStack>
+
+                      <HStack bg="whiteAlpha.50" px={3} py={2} rounded="lg">
+                        <MessageSquare size={13} color="#64748b" />
+                        <Input
+                          variant="unstyled"
+                          fontSize="sm"
+                          placeholder="Add comment, press Enter"
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          onKeyDown={handleAddComment}
+                        />
+                      </HStack>
+                    </Box>
+                  </TabPanel>
+                </TabPanels>
+              </Tabs>
+
+              <Box mt="auto" pt={6}>
+                <HStack justify="flex-end">
+                  <Button variant="ghost" colorScheme="red" size="sm" leftIcon={<Trash2 size={16} />} onClick={() => onDelete(task.id)}>
+                    Delete Task
+                  </Button>
+                  <Button colorScheme="brand" size="sm" onClick={handleUpdate}>
+                    Save Changes
+                  </Button>
                 </HStack>
               </Box>
-
-              <HStack pt={4} justify="flex-end">
-                <Button variant="ghost" colorScheme="red" size="sm" leftIcon={<Trash2 size={16} />} onClick={() => onDelete(task.id)}>
-                  Delete Task
-                </Button>
-                <Button colorScheme="brand" size="sm" onClick={handleUpdate}>
-                  Save Changes
-                </Button>
-              </HStack>
             </VStack>
 
             {/* Sidebar properties */}

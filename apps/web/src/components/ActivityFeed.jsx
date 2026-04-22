@@ -18,6 +18,9 @@ const ACTION_ICONS = {
   PROJECT_CREATED: { icon: <FolderPlus size={14} />, color: "cyan.400" },
 };
 
+import { formatDistanceToNow } from 'date-fns';
+import { Avatar, Tooltip } from '@chakra-ui/react';
+
 export default function ActivityFeed({ activities, loading }) {
   const { selectedWorkspaceId } = useDashboard();
 
@@ -39,7 +42,7 @@ export default function ActivityFeed({ activities, loading }) {
     );
   }
 
-  if (activities.length === 0) {
+  if (!activities || activities.length === 0) {
     return (
       <Box py={10} textAlign="center">
         <Text color="whiteAlpha.400" fontSize="sm">No recent activity found.</Text>
@@ -48,9 +51,11 @@ export default function ActivityFeed({ activities, loading }) {
   }
 
   return (
-    <VStack align="stretch" spacing={0} divider={<Divider borderColor="whiteAlpha.50" />}>
-      {activities.map((activity) => (
-        <ActivityItem key={activity.id} activity={activity} />
+    <VStack align="stretch" spacing={0}>
+      {activities.map((activity, index) => (
+        <Box key={activity.id || index} borderBottom="1px solid" borderColor="whiteAlpha.50">
+          <ActivityItem activity={activity} />
+        </Box>
       ))}
     </VStack>
   );
@@ -73,28 +78,36 @@ function ActivityItem({ activity }) {
   };
 
   return (
-    <Flex py={3} px={4} gap={4} align="flex-start" _hover={{ bg: "whiteAlpha.50" }} transition="bg 0.2s">
-      <Flex
-        w={7} h={7} rounded="full" mt={0.5}
-        bg="whiteAlpha.100" border="1px solid" borderColor="whiteAlpha.100"
-        align="center" justify="center" color={config.color}
-      >
-        {config.icon}
-      </Flex>
-
+    <Flex py={3} px={4} gap={3} align="flex-start">
+      <Avatar size="sm" name={user?.name} src={user?.avatar} />
+      
       <Box flex="1">
-        <HStack justify="space-between" mb={0.5}>
-          <Text fontSize="xs" fontWeight="700" color="whiteAlpha.900">
+        <HStack justify="space-between" mb={1}>
+          <Text fontSize="sm" fontWeight="600" color="white">
             {user?.name || "Someone"}
           </Text>
-          <Text fontSize="10px" color="whiteAlpha.400">
-            {new Date(createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          
+          <Tooltip label={new Date(createdAt).toLocaleString()}>
+            <Text fontSize="xs" color="whiteAlpha.500">
+              {formatDistanceToNow(new Date(createdAt), { addSuffix: true })}
+            </Text>
+          </Tooltip>
+        </HStack>
+        
+        <HStack spacing={2}>
+          <Flex 
+            w={5} h={5} rounded="md"
+            bg="whiteAlpha.100" 
+            align="center" justify="center" 
+            color={config.color}
+          >
+            {config.icon}
+          </Flex>
+          
+          <Text fontSize="sm" color="whiteAlpha.700">
+            {getActionText()}
           </Text>
         </HStack>
-
-        <Text fontSize="xs" color="whiteAlpha.600" lineHeight="1.4">
-          {getActionText()}
-        </Text>
       </Box>
     </Flex>
   );

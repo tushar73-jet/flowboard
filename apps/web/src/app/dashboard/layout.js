@@ -2,6 +2,7 @@
 import { useState, useEffect, createContext, useContext } from "react";
 import { Box, Flex } from "@chakra-ui/react";
 import Sidebar from "@/components/Sidebar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import api from "@/lib/api";
 
 // Share workspace/project state across dashboard pages
@@ -73,12 +74,14 @@ export default function DashboardLayout({ children }) {
 
   return (
     <DashboardContext.Provider value={ctx}>
-      <Flex minH="100vh" bg="#0b1120">
-        <Sidebar />
-        <Box flex="1" overflow="auto">
-          {children}
-        </Box>
-      </Flex>
+      <ErrorBoundary>
+        <Flex minH="100vh" bg="#0b1120">
+          <Sidebar />
+          <Box flex="1" overflow="auto">
+            {children}
+          </Box>
+        </Flex>
+      </ErrorBoundary>
     </DashboardContext.Provider>
   );
 }

@@ -1,11 +1,11 @@
 "use client";
-import React from "react";
+import React, { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Box, Text, Badge, Flex, Avatar, HStack, Tooltip, Checkbox } from "@chakra-ui/react";
 import { Clock, CheckSquare } from "lucide-react";
 
-export default function TaskCard({ task, onOpen, members, selectionMode, isSelected, onToggleSelect }) {
+export default memo(function TaskCard({ task, onOpen, members, selectionMode, isSelected, onToggleSelect }) {
   const {
     attributes,
     listeners,
@@ -22,7 +22,13 @@ export default function TaskCard({ task, onOpen, members, selectionMode, isSelec
   const style = {
     transition,
     transform: CSS.Translate.toString(transform),
-    opacity: isDragging ? 0.3 : 1,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: isDragging ? 'grabbing' : 'grab',
+    rotate: isDragging ? '2deg' : '0deg',
+    scale: isDragging ? 1.05 : 1,
+    boxShadow: isDragging 
+      ? '0 20px 60px rgba(99,102,241,0.4)' 
+      : 'sm'
   };
 
   const priorityColor = {
@@ -131,4 +137,4 @@ export default function TaskCard({ task, onOpen, members, selectionMode, isSelec
       </Flex>
     </Box>
   );
-}
+});

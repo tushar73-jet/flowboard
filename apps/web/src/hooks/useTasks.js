@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import { useAuth } from "@clerk/nextjs";
 import api from "@/lib/api";
@@ -9,42 +9,53 @@ export function useTasks(projectId, { search, priority, status } = {}) {
   const { getToken } = useAuth();
 
   // Socket.IO Subscription
+  const socketRef = useRef(null);
+
   useEffect(() => {
     if (!projectId) return;
 
-    let socket;
+    let mounted = true;
 
     async function setupSocket() {
       const token = await getToken();
-      socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000", {
-        auth: { token }
+      
+      if (socketRef.current?.connected) {
+        socketRef.current.emit("join_project", projectId);
+        return;
+      }
+
+      const socket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000", {
+        auth: { token },
+        transports: ['websocket', 'polling'],
+        reconnection: true
       });
 
-      socket.emit("join_project", projectId);
+      socketRef.current = socket;
+
+      socket.on("connect", () => {
+        if (mounted) socket.emit("join_project", projectId);
+      });
 
       socket.on("task_created", (task) => {
-        queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+        if (mounted) queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       });
 
       socket.on("task_updated", (updatedTask) => {
-        queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+        if (mounted) queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       });
 
       socket.on("task_deleted", (taskId) => {
-        queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+        if (mounted) queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
       });
     }
 
     setupSocket();
 
     return () => {
-      if (socket) {
-        socket.emit("leave_project", projectId);
-        socket.disconnect();
-      }
+      mounted = false;
+      socketRef.current?.emit("leave_project", projectId);
     };
-  }, [projectId, queryClient, getToken]);
-
+  }, [projectId, queryClient]);
   const query = useQuery({
     queryKey: ["tasks", projectId, { search, priority, status }],
     queryFn: async () => {

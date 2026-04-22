@@ -15,14 +15,18 @@ import {
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import Column from "./Column";
+import TaskCard from "./TaskCard";
 import TaskDetailsModal from "./TaskDetailsModal";
 import {
   Flex, useDisclosure, useToast,
   AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter,
   Button, Icon, Box, VStack, Heading, Text, HStack,
   Menu, MenuButton, MenuList, MenuItem,
+  Tabs, TabList, TabPanels, Tab, TabPanel, Badge, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton, Kbd
 } from "@chakra-ui/react";
 import { Box as BoxIcon, Plus, CheckSquare, ChevronDown, X, Trash2 } from "lucide-react";
+import { useHotkeys } from 'react-hotkeys-hook';
+import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import api from "@/lib/api";
 
 const DEFAULT_COLUMNS = [
@@ -39,6 +43,29 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const cancelRef = useRef();
+
+  const [selectedTaskIndex, setSelectedTaskIndex] = useState(0);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  useHotkeys('up', () => {
+    setSelectedTaskIndex(prev => Math.max(0, prev - 1));
+  }, [tasks]);
+
+  useHotkeys('down', () => {
+    setSelectedTaskIndex(prev => Math.min(tasks.length - 1, prev + 1));
+  }, [tasks]);
+
+  useHotkeys('enter', () => {
+    if (tasks[selectedTaskIndex]) {
+      handleOpenTask(tasks[selectedTaskIndex]);
+    }
+  }, [tasks, selectedTaskIndex]);
+
+  useHotkeys('n', () => {
+    onAddTask('TODO', '');
+  });
+
+  useHotkeys('shift+?', () => setShowShortcuts(true));
 
   // Bulk selection state
   const [selectionMode, setSelectionMode] = useState(false);
@@ -190,49 +217,120 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
         collisionDetection={closestCorners}
         onDragEnd={onDragEnd}
       >
-        <Flex
-          gap={6}
-          p={8}
-          overflowX="auto"
-          minH="calc(100vh - 130px)"
-          alignItems="flex-start"
-          sx={{
-            "&::-webkit-scrollbar": { height: "8px" },
-            "&::-webkit-scrollbar-track": { background: "transparent" },
-            "&::-webkit-scrollbar-thumb": { background: "whiteAlpha.300", borderRadius: "4px" },
-          }}
-        >
-          {tasks.length === 0 ? (
-            <Flex direction="column" align="center" justify="center" w="full" py={20} gap={4}>
-              <Box p={6} bg="whiteAlpha.50" rounded="full" border="1px dashed" borderColor="whiteAlpha.200">
-                <Icon as={BoxIcon} boxSize={8} color="whiteAlpha.400" />
-              </Box>
-              <VStack spacing={1}>
-                <Heading size="md" color="whiteAlpha.900">No tasks found</Heading>
-                <Text color="whiteAlpha.500" fontSize="sm">Try adjusting your filters or create a new task.</Text>
-              </VStack>
-              <Button leftIcon={<Plus size={18} />} colorScheme="brand" onClick={() => onAddTask("TODO", "New Task")} mt={2}>
-                Create New Task
-              </Button>
-            </Flex>
-          ) : (
-            <SortableContext
-              items={columns.map((c) => c.id)}
-              strategy={horizontalListSortingStrategy}
-            >
-              {columns.map((col) => (
-                <Column
-                  key={col.id}
-                  column={{ ...col, onAddTask, onTaskOpen: handleOpenTask, members }}
-                  tasks={tasks.filter((t) => t.status === col.id)}
-                  selectionMode={selectionMode}
-                  selectedTaskIds={selectedTaskIds}
-                  onToggleSelect={toggleSelectTask}
-                />
-              ))}
-            </SortableContext>
-          )}
-        </Flex>
+        <Box w="full">
+          {/* Desktop View */}
+          <Flex
+            display={{ base: "none", lg: "flex" }}
+            gap={6}
+            p={8}
+            overflowX="auto"
+            minH="calc(100vh - 130px)"
+            alignItems="flex-start"
+            sx={{
+              "&::-webkit-scrollbar": { height: "8px" },
+              "&::-webkit-scrollbar-track": { background: "transparent" },
+              "&::-webkit-scrollbar-thumb": { background: "whiteAlpha.300", borderRadius: "4px" },
+            }}
+          >
+            {tasks.length === 0 ? (
+              <Flex direction="column" align="center" justify="center" w="full" py={20} gap={4}>
+                <Box p={6} bg="whiteAlpha.50" rounded="full" border="1px dashed" borderColor="whiteAlpha.200">
+                  <Icon as={BoxIcon} boxSize={8} color="whiteAlpha.400" />
+                </Box>
+                <VStack spacing={1}>
+                  <Heading size="md" color="whiteAlpha.900">No tasks found</Heading>
+                  <Text color="whiteAlpha.500" fontSize="sm">Try adjusting your filters or create a new task.</Text>
+                </VStack>
+                <Button leftIcon={<Plus size={18} />} colorScheme="brand" onClick={() => onAddTask("TODO", "New Task")} mt={2}>
+                  Create New Task
+                </Button>
+              </Flex>
+            ) : (
+              <SortableContext
+                items={columns.map((c) => c.id)}
+                strategy={horizontalListSortingStrategy}
+              >
+                {columns.map((col) => (
+                  <Column
+                    key={col.id}
+                    column={{ ...col, onAddTask, onTaskOpen: handleOpenTask, members }}
+                    tasks={tasks.filter((t) => t.status === col.id)}
+                    selectionMode={selectionMode}
+                    selectedTaskIds={selectedTaskIds}
+                    onToggleSelect={toggleSelectTask}
+                    globalTasks={tasks}
+                    selectedTaskIndex={selectedTaskIndex}
+                  />
+                ))}
+              </SortableContext>
+            )}
+          </Flex>
+
+          {/* Mobile View */}
+          <Box display={{ base: "block", lg: "none" }} w="full">
+            <Tabs variant="soft-rounded" colorScheme="brand" w="full">
+              <TabList px={4} pt={4} overflowX="auto" sx={{ '&::-webkit-scrollbar': { display: 'none' } }}>
+                {columns.map(col => (
+                  <Tab key={col.id} minW="fit-content">
+                    {col.title}
+                    <Badge ml={2} colorScheme="brand">{tasks.filter(t => t.status === col.id).length}</Badge>
+                  </Tab>
+                ))}
+              </TabList>
+              
+              <TabPanels>
+                {columns.map(col => (
+                  <TabPanel key={col.id} px={4} py={4}>
+                    <VStack spacing={3} align="stretch">
+                      {tasks
+                        .filter(t => t.status === col.id)
+                        .map((task) => {
+                          const isSelectedHotKey = tasks[selectedTaskIndex]?.id === task.id;
+                          return (
+                            <Box 
+                              key={task.id}
+                              tabIndex={0}
+                              outline={isSelectedHotKey ? '2px solid' : 'none'}
+                              outlineColor="brand.500"
+                              outlineOffset={2}
+                              rounded="xl"
+                            >
+                              <TaskCard 
+                                task={task} 
+                                onOpen={handleOpenTask}
+                                members={members}
+                                selectionMode={selectionMode}
+                                isSelected={selectedTaskIds.has(task.id)}
+                                onToggleSelect={toggleSelectTask}
+                              />
+                            </Box>
+                          );
+                        })}
+                      {tasks.filter(t => t.status === col.id).length === 0 && (
+                        <Text textAlign="center" color="whiteAlpha.500" py={8} fontSize="sm">
+                          No tasks in this column.
+                        </Text>
+                      )}
+                      <Button
+                        variant="outline"
+                        borderStyle="dashed"
+                        borderColor="whiteAlpha.300"
+                        color="whiteAlpha.600"
+                        _hover={{ bg: "whiteAlpha.100", color: "white" }}
+                        leftIcon={<Plus size={16} />}
+                        size="sm"
+                        w="full"
+                        onClick={() => onAddTask(col.id, "New Task")}
+                      >
+                        New Task
+                      </Button>
+                    </VStack>
+                  </TabPanel>
+                ))}
+              </TabPanels>
+            </Tabs>
+          </Box>
+        </Box>
       </DndContext>
 
       {/* Bulk action floating bar */}
@@ -347,6 +445,7 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </>
   );
 }

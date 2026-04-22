@@ -11,6 +11,7 @@ import { FolderKanban, Plus, ArrowRight, Activity, Trash2 } from "lucide-react";
 import { IconButton } from "@chakra-ui/react";
 import { useDashboard } from "@/app/dashboard/layout";
 import ActivityFeed from "@/components/ActivityFeed";
+import { ProjectCardSkeleton } from "@/components/ProjectCardSkeleton";
 import api from "@/lib/api";
 import { io } from "socket.io-client";
 import { useAuth } from "@clerk/nextjs";
@@ -167,9 +168,9 @@ export default function DashboardPage() {
           </Flex>
 
           {loadingProjects ? (
-            <Flex justify="center" align="center" h="300px">
-              <Spinner size="xl" color="brand.500" thickness="3px" />
-            </Flex>
+            <Grid templateColumns="repeat(auto-fill, minmax(280px, 1fr))" gap={5}>
+              {[...Array(3)].map((_, i) => <ProjectCardSkeleton key={i} />)}
+            </Grid>
           ) : projects.length === 0 ? (
             <EmptyProjects onNew={onProjOpen} canCreate={canCreate} />
           ) : (

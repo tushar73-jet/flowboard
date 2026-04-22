@@ -5,6 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import TaskCard from "./TaskCard";
 import { Box, Flex, Heading, Badge, IconButton, Button, VStack, Input, HStack, Tooltip, Text } from "@chakra-ui/react";
 import { MoreHorizontal, Plus, X, ArrowUpDown } from "lucide-react";
+import { useDashboard } from "@/app/dashboard/layout";
 
 const PRIORITY_ORDER = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 
@@ -14,14 +15,16 @@ const COLUMN_ACCENT = {
   DONE: "green.400",
 };
 
-export default function Column({ column, tasks, selectionMode, selectedTaskIds, onToggleSelect }) {
+export default function Column({ column, tasks, selectionMode, selectedTaskIds, onToggleSelect, globalTasks, selectedTaskIndex }) {
+  const { myRole } = useDashboard();
+  const canCreate = myRole === "OWNER" || myRole === "ADMIN";
   const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [sortByPriority, setSortByPriority] = useState(false);
   const inputRef = useRef(null);
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } = useSortable({
     id: column.id,
     data: { type: "Column", column },
   });
@@ -61,7 +64,7 @@ export default function Column({ column, tasks, selectionMode, selectedTaskIds, 
     <Box
       ref={setNodeRef}
       style={style}
-      bg="surface"
+      bg={isOver ? 'rgba(99,102,241,0.1)' : 'surface'}
       backdropFilter="blur(8px)"
       w="300px"
       minW="300px"
@@ -69,9 +72,10 @@ export default function Column({ column, tasks, selectionMode, selectedTaskIds, 
       flexDirection="column"
       p={4}
       rounded="2xl"
-      borderWidth="1px"
-      borderColor="whiteAlpha.100"
+      borderWidth={isOver ? '2px' : '1px'}
+      borderColor={isOver ? 'brand.500' : 'whiteAlpha.100'}
       boxShadow="xl"
+      transition="all 0.2s"
     >
       {/* Column header */}
       <Flex {...attributes} {...listeners} justify="space-between" align="center" mb={1} px={2} cursor="grab">
@@ -135,64 +139,77 @@ export default function Column({ column, tasks, selectionMode, selectedTaskIds, 
       {/* Task list */}
       <VStack flex={1} spacing={3} align="stretch" minH="100px">
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-          {displayTasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onOpen={column.onTaskOpen}
-              members={column.members}
-              selectionMode={selectionMode}
-              isSelected={selectedTaskIds?.has(task.id)}
-              onToggleSelect={onToggleSelect}
-            />
-          ))}
+          {displayTasks.map((task) => {
+            const isSelectedHotKey = globalTasks && globalTasks[selectedTaskIndex]?.id === task.id;
+            return (
+              <Box 
+                key={task.id}
+                tabIndex={0}
+                outline={isSelectedHotKey ? '2px solid' : 'none'}
+                outlineColor="brand.500"
+                outlineOffset={2}
+                rounded="xl"
+              >
+                <TaskCard
+                  task={task}
+                  onOpen={column.onTaskOpen}
+                  members={column.members}
+                  selectionMode={selectionMode}
+                  isSelected={selectedTaskIds?.has(task.id)}
+                  onToggleSelect={onToggleSelect}
+                />
+              </Box>
+            );
+          })}
         </SortableContext>
       </VStack>
 
       {/* Add task input */}
-      {adding ? (
-        <Box mt={4} p={2} bg="whiteAlpha.50" rounded="xl" border="1px solid" borderColor="brand.500">
-          <Input
-            ref={inputRef}
-            variant="unstyled"
-            placeholder="Task title..."
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={handleKeyDown}
-            fontSize="sm"
-            color="white"
-            px={1}
-            mb={2}
-          />
-          <HStack spacing={2}>
-            <Button size="xs" colorScheme="brand" onClick={handleSubmit} isDisabled={!title.trim()}>
-              Add
-            </Button>
-            <IconButton
-              icon={<X size={14} />}
-              size="xs"
-              variant="ghost"
-              colorScheme="whiteAlpha"
-              aria-label="Cancel"
-              onClick={() => { setAdding(false); setTitle(""); }}
+      {canCreate && (
+        adding ? (
+          <Box mt={4} p={2} bg="whiteAlpha.50" rounded="xl" border="1px solid" borderColor="brand.500">
+            <Input
+              ref={inputRef}
+              variant="unstyled"
+              placeholder="Task title..."
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              fontSize="sm"
+              color="white"
+              px={1}
+              mb={2}
             />
-          </HStack>
-        </Box>
-      ) : (
-        <Button
-          mt={4}
-          variant="outline"
-          borderStyle="dashed"
-          borderColor="whiteAlpha.300"
-          color="whiteAlpha.600"
-          _hover={{ bg: "whiteAlpha.100", color: "white" }}
-          leftIcon={<Plus size={16} />}
-          size="sm"
-          w="full"
-          onClick={() => setAdding(true)}
-        >
-          New Task
-        </Button>
+            <HStack spacing={2}>
+              <Button size="xs" colorScheme="brand" onClick={handleSubmit} isDisabled={!title.trim()}>
+                Add
+              </Button>
+              <IconButton
+                icon={<X size={14} />}
+                size="xs"
+                variant="ghost"
+                colorScheme="whiteAlpha"
+                aria-label="Cancel"
+                onClick={() => { setAdding(false); setTitle(""); }}
+              />
+            </HStack>
+          </Box>
+        ) : (
+          <Button
+            mt={4}
+            variant="outline"
+            borderStyle="dashed"
+            borderColor="whiteAlpha.300"
+            color="whiteAlpha.600"
+            _hover={{ bg: "whiteAlpha.100", color: "white" }}
+            leftIcon={<Plus size={16} />}
+            size="sm"
+            w="full"
+            onClick={() => setAdding(true)}
+          >
+            New Task
+          </Button>
+        )
       )}
     </Box>
   );
