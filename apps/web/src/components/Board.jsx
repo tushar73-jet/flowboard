@@ -18,7 +18,7 @@ import Column from "./Column";
 import TaskCard from "./TaskCard";
 import TaskDetailsModal from "./TaskDetailsModal";
 import {
-  Flex, useDisclosure, useToast,
+  Flex, useDisclosure,
   AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter,
   Button, Icon, Box, VStack, Heading, Text, HStack,
   Menu, MenuButton, MenuList, MenuItem,
@@ -28,6 +28,9 @@ import { Box as BoxIcon, Plus, CheckSquare, ChevronDown, X, Trash2 } from "lucid
 import { useHotkeys } from 'react-hotkeys-hook';
 import { KeyboardShortcutsModal } from "./KeyboardShortcutsModal";
 import api from "@/lib/api";
+import { useCustomToast } from "@/hooks/useCustomToast";
+import { ColumnSkeleton } from "@/components/Skeletons";
+import EmptyState from "./EmptyState";
 
 const DEFAULT_COLUMNS = [
   { id: "TODO", title: "Todo" },
@@ -39,7 +42,7 @@ export default function Board({ tasks, members, onTaskUpdate, onTaskDelete, onCo
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   const [selectedTask, setSelectedTask] = useState(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const toast = useToast();
+  const toast = useCustomToast();
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const cancelRef = useRef();
@@ -103,11 +106,11 @@ export default function Board({ tasks, members, onTaskUpdate, onTaskDelete, onCo
     setIsBulkDeleting(true);
     try {
       await Promise.all([...selectedTaskIds].map(id => onTaskDelete(id)));
-      toast({ title: `Deleted ${selectedTaskIds.size} task${selectedTaskIds.size > 1 ? "s" : ""}`, status: "info", duration: 2500 });
+      toast.deleted(`Deleted ${selectedTaskIds.size} task${selectedTaskIds.size > 1 ? "s" : ""}`);
       exitSelectionMode();
       setBulkDeleteConfirm(false);
     } catch (e) {
-      toast({ title: "Failed to delete tasks", description: e.message, status: "error", duration: 4000 });
+      toast.error({ title: "Failed to delete tasks", description: e.message });
     } finally {
       setIsBulkDeleting(false);
     }
@@ -130,8 +133,9 @@ export default function Board({ tasks, members, onTaskUpdate, onTaskDelete, onCo
       await onTaskDelete(taskToDelete);
       onClose();
       setTaskToDelete(null);
+      toast.deleted("Task deleted");
     } catch (e) {
-      toast({ title: "Failed to delete task", description: e.message, status: "error", duration: 4000 });
+      toast.error({ title: "Failed to delete task", description: e.message });
     } finally {
       setIsDeleting(false);
     }
@@ -177,8 +181,8 @@ export default function Board({ tasks, members, onTaskUpdate, onTaskDelete, onCo
         align="center"
         justify="space-between"
         borderBottom="1px solid"
-        borderColor="whiteAlpha.50"
-        bg="rgba(11,17,32,0.6)"
+        borderColor="whiteAlpha.100"
+        bg="rgba(30,41,59,0.6)"
         minH="44px"
       >
         <HStack spacing={3}>
@@ -233,18 +237,16 @@ export default function Board({ tasks, members, onTaskUpdate, onTaskDelete, onCo
             }}
           >
             {tasks.length === 0 ? (
-              <Flex direction="column" align="center" justify="center" w="full" py={20} gap={4}>
-                <Box p={6} bg="whiteAlpha.50" rounded="full" border="1px dashed" borderColor="whiteAlpha.200">
-                  <Icon as={BoxIcon} boxSize={8} color="whiteAlpha.400" />
-                </Box>
-                <VStack spacing={1}>
-                  <Heading size="md" color="whiteAlpha.900">No tasks found</Heading>
-                  <Text color="whiteAlpha.500" fontSize="sm">Try adjusting your filters or create a new task.</Text>
-                </VStack>
-                <Button leftIcon={<Plus size={18} />} colorScheme="brand" onClick={() => onAddTask("TODO", "New Task")} mt={2}>
-                  Create New Task
-                </Button>
-              </Flex>
+              <Box w="full" py={20}>
+                <EmptyState
+                  icon={BoxIcon}
+                  title="No tasks found"
+                  description="Try adjusting your filters or create a new task to get started."
+                  actionLabel="Create New Task"
+                  onAction={() => onAddTask("TODO", "New Task")}
+                  size="lg"
+                />
+              </Box>
             ) : (
               <SortableContext
                 items={columns.map((c) => c.id)}
@@ -277,7 +279,7 @@ export default function Board({ tasks, members, onTaskUpdate, onTaskDelete, onCo
                   </Tab>
                 ))}
               </TabList>
-              
+
               <TabPanels>
                 {columns.map(col => (
                   <TabPanel key={col.id} px={4} py={4}>
@@ -287,7 +289,7 @@ export default function Board({ tasks, members, onTaskUpdate, onTaskDelete, onCo
                         .map((task) => {
                           const isSelectedHotKey = tasks[selectedTaskIndex]?.id === task.id;
                           return (
-                            <Box 
+                            <Box
                               key={task.id}
                               tabIndex={0}
                               outline={isSelectedHotKey ? '2px solid' : 'none'}
@@ -295,8 +297,8 @@ export default function Board({ tasks, members, onTaskUpdate, onTaskDelete, onCo
                               outlineOffset={2}
                               rounded="xl"
                             >
-                              <TaskCard 
-                                task={task} 
+                              <TaskCard
+                                task={task}
                                 onOpen={handleOpenTask}
                                 members={members}
                                 selectionMode={selectionMode}

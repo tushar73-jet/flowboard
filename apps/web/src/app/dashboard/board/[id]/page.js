@@ -11,6 +11,7 @@ import {
 } from "@chakra-ui/react";
 import { useDashboard } from "@/app/dashboard/layout";
 import { Search } from "lucide-react";
+import { ColumnSkeleton } from "@/components/Skeletons";
 
 export default function BoardPage() {
   const params = useParams();
@@ -38,9 +39,9 @@ export default function BoardPage() {
 
   if (isLoading) {
     return (
-      <Flex h="100vh" align="center" justify="center">
-        <Spinner size="xl" color="brand.500" thickness="4px" />
-      </Flex>
+      <Box minH="100vh" bg="#0b1120">
+        <ColumnSkeleton count={3} />
+      </Box>
     );
   }
 

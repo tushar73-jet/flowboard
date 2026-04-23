@@ -27,8 +27,25 @@ const io = new Server(server, {
   transports: ['websocket', 'polling'],
 });
 
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth.token;
+    if (!token) {
+      return next(new Error('Authentication required'));
+    }
+    
+    // Verify Clerk token
+    const { clerkClient } = require('@clerk/clerk-sdk-node');
+    const user = await clerkClient.verifyToken(token);
+    socket.userId = user.sub;
+    next();
+  } catch (err) {
+    next(new Error('Invalid token'));
+  }
+});
+
 io.on('connection', (socket) => {
-  console.log(`[Socket.IO] Client connected: ${socket.id}`);
+  console.log(`[Socket.IO] Authenticated user ${socket.userId} connected: ${socket.id}`);
 
   socket.on('join_project', (projectId) => {
     socket.join(`project:${projectId}`);

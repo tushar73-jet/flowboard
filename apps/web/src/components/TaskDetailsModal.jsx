@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import DOMPurify from 'dompurify';
 import {
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalCloseButton,
@@ -15,6 +15,9 @@ import {
 import api from "@/lib/api";
 import { useLabels } from "@/hooks/useLabels";
 import { useDashboard } from "@/app/dashboard/layout";
+import RichTextEditor from "@/components/RichTextEditor";
+import { useCustomToast } from "@/hooks/useCustomToast";
+import { useState as useStateAuto, useRef as useRefAuto } from "react";
 
 export default function TaskDetailsModal({
   isOpen, onClose, task, members, onUpdate, onDelete
@@ -36,7 +39,9 @@ export default function TaskDetailsModal({
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#6366f1");
 
-  const toast = useToast();
+  const toast = useCustomToast();
+  const [autoSaveLabel, setAutoSaveLabel] = useState("No unsaved changes");
+  const autoSaveTimer = React.useRef(null);
 
   useEffect(() => {
     if (task) {
@@ -49,18 +54,15 @@ export default function TaskDetailsModal({
       setSelectedLabels(task.labels || []);
       setSubtasks(task.subtasks || []);
       // Fetch comments when task opens
-      api.get(`/comments?taskId=${task.id}`).then(({ data }) => setComments(data)).catch(() => {});
+      api.get(`/comments?taskId=${task.id}`).then(({ data }) => setComments(data)).catch(() => { });
     }
   }, [task]);
 
   const handleUpdate = async () => {
-    // Snapshot label state before any changes so we can rollback on error
     const previousLabels = task?.labels || [];
+    setAutoSaveLabel("Saving...");
     try {
-      // Save labels first so that if it fails, we haven't touched the task yet
       await api.put(`/tasks/${task.id}/labels`, { labelIds: selectedLabels.map(l => l.id) });
-
-      // Now fire the optimistic mutation
       onUpdate({
         ...task,
         title,
@@ -70,28 +72,21 @@ export default function TaskDetailsModal({
         dueDate: dueDate || null,
         assigneeId: assigneeId || null,
       });
-
-      toast({
-        title: "Task updated",
-        status: "success",
-        duration: 2000,
-        isClosable: true,
-      });
+      setAutoSaveLabel(`Saved at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+      toast.success({ title: "Task updated" });
     } catch (err) {
-      // Rollback label selection to what the server has
       setSelectedLabels(previousLabels);
-      toast({
+      setAutoSaveLabel("Save failed");
+      toast.error({
         title: "Failed to save changes",
         description: err?.response?.data?.error || err.message,
-        status: "error",
-        duration: 3000,
       });
     }
-  };
+  };;
 
   const toggleLabel = (label) => {
-    setSelectedLabels(prev => 
-      prev.find(l => l.id === label.id) 
+    setSelectedLabels(prev =>
+      prev.find(l => l.id === label.id)
         ? prev.filter(l => l.id !== label.id)
         : [...prev, label]
     );
@@ -156,6 +151,11 @@ export default function TaskDetailsModal({
               placeholder="Task title"
               _placeholder={{ color: "whiteAlpha.300" }}
             />
+            {task?.id && (
+              <Text fontSize="xs" color="whiteAlpha.300" fontWeight="500" whiteSpace="nowrap" fontFamily="mono">
+                #{task.id.slice(-6)}
+              </Text>
+            )}
           </HStack>
         </ModalHeader>
         <ModalCloseButton />
@@ -183,18 +183,11 @@ export default function TaskDetailsModal({
                           <MessageSquare size={14} />
                           <Text fontSize="xs" fontWeight="700" textTransform="uppercase">Description</Text>
                         </HStack>
-                        <Textarea
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder="Review the project goals and define the next steps..."
-                          bg="whiteAlpha.50"
-                          border="1px solid"
-                          borderColor="whiteAlpha.100"
-                          _focus={{ borderColor: "brand.500", bg: "whiteAlpha.100" }}
-                          rounded="xl"
-                          minH="150px"
-                          fontSize="sm"
-                          pt={3}
+                        <RichTextEditor
+                          content={description}
+                          onChange={setDescription}
+                          placeholder="Describe the task, add context, or paste links..."
+                          autoSaveLabel={autoSaveLabel}
                         />
                       </Box>
 
@@ -266,8 +259,8 @@ export default function TaskDetailsModal({
                                 <Text fontSize="xs" fontWeight="600" color="whiteAlpha.800">{c.user?.name}</Text>
                                 <Text fontSize="10px" color="whiteAlpha.400">{new Date(c.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Text>
                               </HStack>
-                              <Text 
-                                fontSize="sm" 
+                              <Text
+                                fontSize="sm"
                                 color="whiteAlpha.700"
                                 dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(c.content) }}
                               />
@@ -342,7 +335,7 @@ export default function TaskDetailsModal({
 
               <PropertyItem label="Assignee">
                 <Menu>
-                  <MenuButton as={Button} size="sm" variant="outline" w="full" borderColor="whiteAlpha.100" fontSize="xs" textAlign="left" px={2} _active={{bg: "whiteAlpha.100"}} _hover={{bg: "whiteAlpha.50"}}>
+                  <MenuButton as={Button} size="sm" variant="outline" w="full" borderColor="whiteAlpha.100" fontSize="xs" textAlign="left" px={2} _active={{ bg: "whiteAlpha.100" }} _hover={{ bg: "whiteAlpha.50" }}>
                     <HStack spacing={2}>
                       <Avatar size="xs" name={selectedAssignee?.name} src={selectedAssignee?.avatarUrl} />
                       <Text noOfLines={1}>{selectedAssignee?.name || "Unassigned"}</Text>
@@ -397,10 +390,10 @@ export default function TaskDetailsModal({
                     </Tag>
                   ))}
                 </Flex>
-                
+
                 <Popover placement="bottom-start">
                   <PopoverTrigger>
-                    <Button size="xs" variant="outline" leftIcon={<Plus size={12} />} w="full" borderColor="whiteAlpha.100" _hover={{bg:"whiteAlpha.50"}}>
+                    <Button size="xs" variant="outline" leftIcon={<Plus size={12} />} w="full" borderColor="whiteAlpha.100" _hover={{ bg: "whiteAlpha.50" }}>
                       Add Labels
                     </Button>
                   </PopoverTrigger>
@@ -411,12 +404,12 @@ export default function TaskDetailsModal({
                     <PopoverBody px={1}>
                       <VStack align="stretch" spacing={1} maxH="150px" overflowY="auto" mb={3}>
                         {workspaceLabels.map(l => (
-                          <HStack 
-                            key={l.id} 
-                            px={2} py={1.5} rounded="md" 
-                            cursor="pointer" 
+                          <HStack
+                            key={l.id}
+                            px={2} py={1.5} rounded="md"
+                            cursor="pointer"
                             bg={selectedLabels.find(sl => sl.id === l.id) ? "brand.500" : "transparent"}
-                            _hover={{bg: selectedLabels.find(sl => sl.id === l.id) ? "brand.600" : "whiteAlpha.100"}}
+                            _hover={{ bg: selectedLabels.find(sl => sl.id === l.id) ? "brand.600" : "whiteAlpha.100" }}
                             onClick={() => toggleLabel(l)}
                             justify="space-between"
                           >
@@ -428,21 +421,21 @@ export default function TaskDetailsModal({
                           </HStack>
                         ))}
                       </VStack>
-                      
+
                       <Divider borderColor="whiteAlpha.100" mb={3} />
-                      
+
                       <VStack spacing={2}>
-                        <Input 
-                          placeholder="New label..." size="xs" bg="whiteAlpha.50" 
-                          borderColor="whiteAlpha.100" value={newLabelName} 
+                        <Input
+                          placeholder="New label..." size="xs" bg="whiteAlpha.50"
+                          borderColor="whiteAlpha.100" value={newLabelName}
                           onChange={(e) => setNewLabelName(e.target.value)}
                         />
                         <HStack w="full">
-                           <Input 
-                            type="color" size="xs" w="40px" p={0} bg="transparent" border="none" 
+                          <Input
+                            type="color" size="xs" w="40px" p={0} bg="transparent" border="none"
                             value={newLabelColor} onChange={(e) => setNewLabelColor(e.target.value)}
-                           />
-                           <Button size="xs" colorScheme="brand" w="full" onClick={handleCreateLabel}>Create</Button>
+                          />
+                          <Button size="xs" colorScheme="brand" w="full" onClick={handleCreateLabel}>Create</Button>
                         </HStack>
                       </VStack>
                     </PopoverBody>

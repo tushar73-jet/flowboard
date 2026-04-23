@@ -119,7 +119,7 @@ router.post('/:workspaceId/members', requireRole(['OWNER', 'ADMIN']), async (req
   }
 });
 
-router.delete('/:workspaceId/members/:userId', requireRole(['OWNER', 'ADMIN']), async (req, res) => {
+router.delete('/:workspaceId/members/:userId', requireRole(['OWNER']), async (req, res) => {
   const { workspaceId, userId } = req.params;
 
   try {

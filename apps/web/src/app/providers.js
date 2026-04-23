@@ -9,7 +9,7 @@ const theme = extendTheme({
     initialColorMode: 'dark',
     useSystemColorMode: false
   },
-  
+
   colors: {
     brand: {
       50: '#eef2ff',
@@ -34,14 +34,14 @@ const theme = extendTheme({
       card: '#1e293b',
       hover: 'rgba(255,255,255,0.05)'
     },
-    
+
     text: {
       primary: 'rgba(255,255,255,0.95)',
       secondary: 'rgba(255,255,255,0.75)',
       tertiary: 'rgba(255,255,255,0.60)',
       disabled: 'rgba(255,255,255,0.40)'
     },
-    
+
     border: {
       default: 'rgba(255,255,255,0.10)',
       hover: 'rgba(255,255,255,0.20)',
@@ -51,7 +51,7 @@ const theme = extendTheme({
     surface: '#0f172a',
     card: '#1e293b',
   },
-  
+
   shadows: {
     sm: '0 1px 3px rgba(0,0,0,0.2)',
     md: '0 4px 12px rgba(0,0,0,0.3)',
@@ -59,7 +59,7 @@ const theme = extendTheme({
     xl: '0 20px 60px rgba(0,0,0,0.5)',
     brand: '0 10px 40px rgba(99,102,241,0.3)'
   },
-  
+
   radii: {
     sm: '8px',
     md: '12px',
@@ -68,7 +68,7 @@ const theme = extendTheme({
     '2xl': '24px',
     '3xl': '32px'
   },
-  
+
   components: {
     Button: {
       defaultProps: {
@@ -107,7 +107,7 @@ const theme = extendTheme({
         }
       }
     },
-    
+
     Card: {
       baseStyle: {
         container: {
@@ -125,7 +125,7 @@ const theme = extendTheme({
         }
       }
     },
-    
+
     Input: {
       variants: {
         filled: {

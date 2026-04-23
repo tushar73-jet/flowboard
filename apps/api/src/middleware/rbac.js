@@ -27,18 +27,33 @@ const authenticate = (req, res, next) => {
         console.warn('[AUTH] Failed to fetch Clerk user details:', err.message);
       }
 
-      let user = await prisma.user.upsert({
-        where: { id: userId },
-        update: {
-          email: emailFromClerk,
-          name: nameFromClerk
-        },
-        create: {
-          id: userId,
-          email: emailFromClerk,
-          name: nameFromClerk
+      let user;
+      try {
+        user = await prisma.user.upsert({
+          where: { id: userId },
+          update: {
+            email: emailFromClerk,
+            name: nameFromClerk
+          },
+          create: {
+            id: userId,
+            email: emailFromClerk,
+            name: nameFromClerk
+          }
+        });
+      } catch (upsertErr) {
+        // P2002 = unique constraint violation (email already belongs to another record)
+        // This can happen if a user changes their Clerk email and the new one is in use.
+        if (upsertErr.code === 'P2002') {
+          console.warn('[AUTH] Email conflict during upsert, falling back to existing record:', emailFromClerk);
+          user = await prisma.user.findUnique({ where: { id: userId } });
+          if (!user) {
+            return res.status(409).json({ error: 'Email address is already in use by another account.' });
+          }
+        } else {
+          throw upsertErr;
         }
-      });
+      }
 
       req.user = user;
       console.log(`[AUTH] User authenticated: ${user.id} (${user.email})`);

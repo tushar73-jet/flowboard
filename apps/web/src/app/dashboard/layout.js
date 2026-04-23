@@ -75,7 +75,7 @@ export default function DashboardLayout({ children }) {
   return (
     <DashboardContext.Provider value={ctx}>
       <ErrorBoundary>
-        <Flex minH="100vh" bg="#0b1120">
+        <Flex minH="100vh" bg="#0f172a" color="whiteAlpha.900">
           <Sidebar />
           <Box flex="1" overflow="auto">
             {children}

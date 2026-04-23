@@ -15,6 +15,18 @@ const COLUMN_ACCENT = {
   DONE: "green.400",
 };
 
+const COLUMN_GRADIENT = {
+  TODO: "rgba(255,255,255,0.05)",
+  IN_PROGRESS: "rgba(59,130,246,0.08)",
+  DONE: "rgba(16,185,129,0.08)",
+};
+
+const COLUMN_BORDER = {
+  TODO: "rgba(255,255,255,0.08)",
+  IN_PROGRESS: "rgba(59,130,246,0.2)",
+  DONE: "rgba(16,185,129,0.2)",
+};
+
 export default function Column({ column, tasks, selectionMode, selectedTaskIds, onToggleSelect, globalTasks, selectedTaskIndex }) {
   const { myRole } = useDashboard();
   const canCreate = myRole === "OWNER" || myRole === "ADMIN";
@@ -64,8 +76,8 @@ export default function Column({ column, tasks, selectionMode, selectedTaskIds, 
     <Box
       ref={setNodeRef}
       style={style}
-      bg={isOver ? 'rgba(99,102,241,0.1)' : 'surface'}
-      backdropFilter="blur(8px)"
+      bg={isOver ? 'rgba(99,102,241,0.1)' : (COLUMN_GRADIENT[column.id] || 'surface')}
+      backdropFilter="blur(12px)"
       w="300px"
       minW="300px"
       display="flex"
@@ -73,8 +85,8 @@ export default function Column({ column, tasks, selectionMode, selectedTaskIds, 
       p={4}
       rounded="2xl"
       borderWidth={isOver ? '2px' : '1px'}
-      borderColor={isOver ? 'brand.500' : 'whiteAlpha.100'}
-      boxShadow="xl"
+      borderColor={isOver ? 'brand.500' : (COLUMN_BORDER[column.id] || 'whiteAlpha.100')}
+      boxShadow={isOver ? "0 0 0 2px rgba(99,102,241,0.3), 0 8px 32px rgba(0,0,0,0.4)" : "0 4px 24px rgba(0,0,0,0.3)"}
       transition="all 0.2s"
     >
       {/* Column header */}
@@ -142,7 +154,7 @@ export default function Column({ column, tasks, selectionMode, selectedTaskIds, 
           {displayTasks.map((task) => {
             const isSelectedHotKey = globalTasks && globalTasks[selectedTaskIndex]?.id === task.id;
             return (
-              <Box 
+              <Box
                 key={task.id}
                 tabIndex={0}
                 outline={isSelectedHotKey ? '2px solid' : 'none'}

@@ -6,12 +6,14 @@ import {
   Box, Flex, Text, VStack, HStack, Select, Spinner,
   IconButton, Tooltip, Badge, Divider, Button, Textarea,
   useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody, ModalFooter, ModalCloseButton, Input, useToast,
-  AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter
+  AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter,
+  Kbd
 } from "@chakra-ui/react";
 import { UserButton } from "@clerk/nextjs";
-import { LayoutDashboard, FolderKanban, Plus, Trash2, ChevronRight, Users } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Plus, Trash2, ChevronRight, Users, Keyboard, HelpCircle, MessageSquare } from "lucide-react";
 import { useDashboard } from "@/app/dashboard/layout";
 import api from "@/lib/api";
+import { SidebarProjectsSkeleton } from "@/components/Skeletons";
 
 const ROLE_META = {
   OWNER: { label: "Owner", color: "purple" },
@@ -115,7 +117,7 @@ export default function Sidebar() {
       h="100vh"
       position="sticky"
       top={0}
-      bg="rgba(15, 23, 42, 0.95)"
+      bg="rgba(30, 41, 59, 0.7)"
       borderRightWidth="1px"
       borderColor="whiteAlpha.100"
       backdropFilter="blur(20px)"
@@ -282,9 +284,7 @@ export default function Sidebar() {
         </Flex>
 
         {loadingProjects ? (
-          <Flex justify="center" py={4}>
-            <Spinner size="sm" color="brand.500" />
-          </Flex>
+          <SidebarProjectsSkeleton count={4} />
         ) : projects.length === 0 ? (
           <Text fontSize="xs" color="whiteAlpha.300" px={2} py={2}>
             {canCreate ? "No projects yet. Click + to create one." : "No projects in this workspace."}
@@ -302,14 +302,56 @@ export default function Sidebar() {
         )}
       </Box>
 
+      {/* Footer */}
       <Box p={4} borderTopWidth="1px" borderColor="whiteAlpha.50">
-        <Flex align="center" gap={3}>
+        <Flex align="center" gap={3} mb={3}>
           <UserButton afterSignOutUrl="/" />
-          <Box>
-            <Text fontSize="xs" color="whiteAlpha.700" fontWeight="500">My Account</Text>
+          <Box flex="1" minW={0}>
+            <Text fontSize="xs" color="whiteAlpha.800" fontWeight="600" noOfLines={1}>My Account</Text>
             <Text fontSize="0.6rem" color="whiteAlpha.400">Manage profile</Text>
           </Box>
         </Flex>
+        <Divider borderColor="whiteAlpha.50" mb={3} />
+        <VStack spacing={1} align="stretch">
+          <Flex
+            as={Link}
+            href="/dashboard"
+            align="center" gap={2} px={2} py={1.5} rounded="md"
+            color="whiteAlpha.400" fontSize="xs"
+            _hover={{ color: "whiteAlpha.700", bg: "whiteAlpha.50" }}
+            transition="all 0.15s"
+            style={{ textDecoration: "none" }}
+          >
+            <Keyboard size={11} />
+            <Text>Keyboard shortcuts</Text>
+            <Box ml="auto" display="flex" gap={0.5}>
+              <Kbd fontSize="9px" bg="whiteAlpha.100" color="whiteAlpha.400" border="none">Shift</Kbd>
+              <Kbd fontSize="9px" bg="whiteAlpha.100" color="whiteAlpha.400" border="none">?</Kbd>
+            </Box>
+          </Flex>
+          <Flex
+            align="center" gap={2} px={2} py={1.5} rounded="md"
+            color="whiteAlpha.400" fontSize="xs"
+            _hover={{ color: "whiteAlpha.700", bg: "whiteAlpha.50" }}
+            transition="all 0.15s"
+            cursor="default"
+          >
+            <HelpCircle size={11} />
+            <Text>Help & support</Text>
+          </Flex>
+          <Flex
+            align="center" gap={2} px={2} py={1.5} rounded="md"
+            color="brand.500" fontSize="xs" fontWeight="600"
+            bg="rgba(99,102,241,0.08)"
+            _hover={{ bg: "rgba(99,102,241,0.15)" }}
+            transition="all 0.15s"
+            cursor="default"
+            rounded="md"
+          >
+            <MessageSquare size={11} />
+            <Text>Send feedback</Text>
+          </Flex>
+        </VStack>
       </Box>
 
       <Modal isOpen={isWsOpen} onClose={onWsClose} isCentered blockScrollOnMount={false}>
@@ -383,17 +425,25 @@ function NavItem({ icon, label, href, active }) {
         align="center"
         gap={3}
         px={3}
-        py={2}
+        py={2.5}
         rounded="lg"
         cursor="pointer"
-        bg={active ? "whiteAlpha.150" : "transparent"}
-        color={active ? "white" : "whiteAlpha.600"}
+        bg={active ? "rgba(99,102,241,0.15)" : "transparent"}
+        color={active ? "brand.300" : "whiteAlpha.600"}
         _hover={{ bg: "whiteAlpha.100", color: "white" }}
         transition="all 0.15s"
         fontSize="sm"
-        fontWeight={active ? "600" : "400"}
+        fontWeight={active ? "700" : "500"}
+        position="relative"
       >
-        {icon}
+        {active && (
+          <Box
+            position="absolute"
+            left={0} top="50%" transform="translateY(-50%)"
+            w="2px" h="60%" bg="brand.500" rounded="full"
+          />
+        )}
+        <Box color={active ? "brand.400" : "whiteAlpha.500"}>{icon}</Box>
         <Text flex="1">{label}</Text>
         {active && <ChevronRight size={12} />}
       </Flex>
@@ -402,6 +452,10 @@ function NavItem({ icon, label, href, active }) {
 }
 
 function ProjectItem({ proj, active }) {
+  // Subtle color dot cycling through brand colors per project name hash
+  const hue = (proj.name.charCodeAt(0) * 37 + proj.name.charCodeAt(1 % proj.name.length) * 13) % 360;
+  const dotColor = `hsl(${hue}, 70%, 60%)`;
+
   return (
     <Link href={`/dashboard/board/${proj.id}`} style={{ textDecoration: "none" }}>
       <Flex
@@ -411,15 +465,24 @@ function ProjectItem({ proj, active }) {
         py={2}
         rounded="lg"
         cursor="pointer"
-        bg={active ? "rgba(99,102,241,0.2)" : "transparent"}
-        color={active ? "brand.300" : "whiteAlpha.600"}
+        bg={active ? "rgba(99,102,241,0.18)" : "transparent"}
+        color={active ? "white" : "whiteAlpha.600"}
         _hover={{ bg: "whiteAlpha.100", color: "white" }}
         transition="all 0.15s"
         fontSize="sm"
-        borderLeftWidth={active ? "2px" : "2px"}
+        fontWeight={active ? "700" : "400"}
+        borderLeftWidth="2px"
         borderLeftColor={active ? "brand.500" : "transparent"}
+        role="group"
       >
-        <FolderKanban size={14} />
+        <Box
+          w={2}
+          h={2}
+          rounded="full"
+          bg={dotColor}
+          flexShrink={0}
+          boxShadow={active ? `0 0 6px ${dotColor}` : "none"}
+        />
         <Text flex="1" noOfLines={1}>{proj.name}</Text>
       </Flex>
     </Link>
