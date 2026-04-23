@@ -18,8 +18,18 @@ const app = express();
 const port = process.env.PORT || 4000;
 
 const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? [process.env.FRONTEND_URL, 'https://flowboard-web-r1fi.vercel.app'] 
-  : ['http://localhost:3000', 'https://flowboard-web-r1fi.vercel.app'];
+  ? [
+      process.env.FRONTEND_URL,
+      'https://flowboard-web-one.vercel.app',
+      'https://flowboard-web-r1fi.vercel.app',
+      /^https:\/\/flowboard-.*\.vercel\.app$/,
+    ]
+  : [
+      'http://localhost:3000',
+      'https://flowboard-web-one.vercel.app',
+      'https://flowboard-web-r1fi.vercel.app',
+      /^https:\/\/flowboard-.*\.vercel\.app$/,
+    ];
 
 const server = http.createServer(app);
 const io = new Server(server, {
