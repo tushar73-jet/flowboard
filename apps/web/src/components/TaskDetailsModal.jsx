@@ -54,7 +54,13 @@ export default function TaskDetailsModal({
   }, [task]);
 
   const handleUpdate = async () => {
+    // Snapshot label state before any changes so we can rollback on error
+    const previousLabels = task?.labels || [];
     try {
+      // Save labels first so that if it fails, we haven't touched the task yet
+      await api.put(`/tasks/${task.id}/labels`, { labelIds: selectedLabels.map(l => l.id) });
+
+      // Now fire the optimistic mutation
       onUpdate({
         ...task,
         title,
@@ -62,10 +68,8 @@ export default function TaskDetailsModal({
         status,
         priority,
         dueDate: dueDate || null,
-        assigneeId: assigneeId || null
+        assigneeId: assigneeId || null,
       });
-
-      await api.put(`/tasks/${task.id}/labels`, { labelIds: selectedLabels.map(l => l.id) });
 
       toast({
         title: "Task updated",
@@ -74,6 +78,8 @@ export default function TaskDetailsModal({
         isClosable: true,
       });
     } catch (err) {
+      // Rollback label selection to what the server has
+      setSelectedLabels(previousLabels);
       toast({
         title: "Failed to save changes",
         description: err?.response?.data?.error || err.message,

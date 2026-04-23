@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTasks } from "@/hooks/useTasks";
 import { usePresence } from "@/hooks/usePresence";
 import Board from "@/components/Board";
@@ -15,11 +15,21 @@ import { Search } from "lucide-react";
 export default function BoardPage() {
   const params = useParams();
   const projectId = params.id;
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [priority, setPriority] = useState("");
   const [status, setStatus] = useState("");
 
-  const { data: tasks, isLoading, isError, updateTaskMutation, addTaskMutation } = useTasks(projectId, { search, priority, status });
+  // Debounce search: only fire query 300ms after user stops typing
+  const debounceRef = useRef(null);
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setSearchInput(val);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setSearch(val), 300);
+  };
+
+  const { data: tasks, isLoading, isError, updateTaskMutation, addTaskMutation, deleteTaskMutation } = useTasks(projectId, { search, priority, status });
   const { projects, members, myRole } = useDashboard();
   const presentUsers = usePresence(projectId, members);
 
@@ -82,8 +92,8 @@ export default function BoardPage() {
               borderColor="whiteAlpha.100"
               _focus={{ borderColor: "brand.500", bg: "whiteAlpha.100" }}
               rounded="lg"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={handleSearchChange}
             />
           </InputGroup>
 
@@ -156,6 +166,7 @@ export default function BoardPage() {
         tasks={tasks || []}
         members={members || []}
         onTaskUpdate={(updatedTask) => updateTaskMutation.mutate(updatedTask)}
+        onTaskDelete={(taskId) => deleteTaskMutation.mutateAsync(taskId)}
         onAddTask={handleAddTask}
         onColumnReorder={(newColumns) => {
           console.log("New column order:", newColumns);

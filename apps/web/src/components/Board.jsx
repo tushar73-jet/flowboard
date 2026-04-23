@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -35,7 +35,7 @@ const DEFAULT_COLUMNS = [
   { id: "DONE", title: "Done" },
 ];
 
-export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, onAddTask }) {
+export default function Board({ tasks, members, onTaskUpdate, onTaskDelete, onColumnReorder, onAddTask }) {
   const [columns, setColumns] = useState(DEFAULT_COLUMNS);
   const [selectedTask, setSelectedTask] = useState(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -74,14 +74,14 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const bulkCancelRef = useRef();
 
-  const toggleSelectTask = (taskId) => {
+  const toggleSelectTask = useCallback((taskId) => {
     setSelectedTaskIds(prev => {
       const next = new Set(prev);
       if (next.has(taskId)) next.delete(taskId);
       else next.add(taskId);
       return next;
     });
-  };
+  }, []);
 
   const exitSelectionMode = () => {
     setSelectionMode(false);
@@ -102,7 +102,7 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
   const handleBulkDelete = async () => {
     setIsBulkDeleting(true);
     try {
-      await Promise.all([...selectedTaskIds].map(id => api.delete(`/tasks/${id}`)));
+      await Promise.all([...selectedTaskIds].map(id => onTaskDelete(id)));
       toast({ title: `Deleted ${selectedTaskIds.size} task${selectedTaskIds.size > 1 ? "s" : ""}`, status: "info", duration: 2500 });
       exitSelectionMode();
       setBulkDeleteConfirm(false);
@@ -118,16 +118,16 @@ export default function Board({ tasks, members, onTaskUpdate, onColumnReorder, o
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  const handleOpenTask = (task) => {
+  const handleOpenTask = useCallback((task) => {
     setSelectedTask(task);
     onOpen();
-  };
+  }, [onOpen]);
 
   const handleDeleteTask = async () => {
     if (!taskToDelete) return;
     setIsDeleting(true);
     try {
-      await api.delete(`/tasks/${taskToDelete}`);
+      await onTaskDelete(taskToDelete);
       onClose();
       setTaskToDelete(null);
     } catch (e) {

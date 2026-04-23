@@ -53,7 +53,11 @@ export function useTasks(projectId, { search, priority, status } = {}) {
 
     return () => {
       mounted = false;
-      socketRef.current?.emit("leave_project", projectId);
+      if (socketRef.current) {
+        socketRef.current.emit("leave_project", projectId);
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
     };
   }, [projectId, queryClient]);
   const query = useQuery({
@@ -125,5 +129,26 @@ export function useTasks(projectId, { search, priority, status } = {}) {
     },
   });
 
-  return { ...query, updateTaskMutation, addTaskMutation };
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (taskId) => {
+      await api.delete(`/tasks/${taskId}`);
+      return taskId;
+    },
+    onMutate: async (taskId) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks", projectId] });
+      const previousTasks = queryClient.getQueryData(["tasks", projectId]);
+      queryClient.setQueryData(["tasks", projectId], (old) =>
+        (old || []).filter((t) => t.id !== taskId)
+      );
+      return { previousTasks };
+    },
+    onError: (_err, _taskId, context) => {
+      queryClient.setQueryData(["tasks", projectId], context.previousTasks);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+    },
+  });
+
+  return { ...query, updateTaskMutation, addTaskMutation, deleteTaskMutation };
 }
